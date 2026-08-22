@@ -1,0 +1,9 @@
+/.idea/
+/.vscode/
+/.phpunit.result.cache
+/vendor/
+/node_modules/
+/files/
+*.log
+*.tmp
+*.bak

@@ -1,0 +1,19 @@
+{
+  "name": "glpi-plugin/dashboardplus",
+  "description": "Dashboards operacionais, táticos e executivos modernos para GLPI.",
+  "type": "glpi-plugin",
+  "license": "GPL-3.0-or-later",
+  "require": {
+    "php": ">=7.4"
+  },
+  "autoload": {
+    "psr-4": {
+      "GlpiPlugin\\Dashboardplus\\": "src/"
+    }
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true
+  },
+  "version": "1.0.0"
+}

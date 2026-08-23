@@ -38,9 +38,21 @@ $context = new GlpiPlugin\Dashboardplus\DashboardContext(
 );
 
 $keys = [
+   'tickets_unassigned',
+   'tickets_solved_today',
+   'notification_queue',
+   'tickets_priority_medium',
+   'tickets_priority_high',
+   'tickets_priority_critical',
+   'tickets_received_by_day',
+   'tickets_solved_closed_by_day',
+   'tickets_open_by_day',
+   'tickets_by_location',
    'tickets_by_entity',
    'tickets_by_request_type',
    'sla_response_compliance',
+   'sla_by_technician',
+   'sla_by_category',
    'average_solve_time_closed',
    'satisfaction_average',
    'satisfaction_answered_count',
@@ -60,9 +72,11 @@ $keys = [
    'asset_total_printers',
    'asset_total_phones',
    'asset_computers_by_manufacturer',
+   'asset_monitors_by_manufacturer',
    'asset_computers_by_type',
    'asset_computers_by_location',
    'asset_computers_by_os',
+   'asset_computers_by_cpu',
    'asset_computers_sp_map',
 ];
 

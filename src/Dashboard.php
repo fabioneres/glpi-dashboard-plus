@@ -43,6 +43,18 @@ class Dashboard extends CommonDBTM
 
       $settings = Config::getSettings();
       $context = DashboardContext::fromRequest($_GET, $settings);
+
+      if (!Config::canUseDashboardInEntity($context->getEntitiesId(), $context->isRecursive())) {
+         echo "<div class='dashboardplus-page'>";
+         echo "<div class='dashboardplus-empty-state'>";
+         echo "<i class='ti ti-lock'></i>";
+         echo "<strong>" . __('Dashboard Plus indisponível para esta entidade', 'dashboardplus') . "</strong>";
+         echo "<span>" . __('Verifique a configuração por entidade ou selecione uma entidade permitida.', 'dashboardplus') . "</span>";
+         echo "</div>";
+         echo "</div>";
+         return;
+      }
+
       $widgets = WidgetRegistry::getEnabledWidgets();
       $configs = WidgetRegistry::getWidgetConfigs();
       $refresh = (int) ($settings['auto_refresh'] ?? 0) === 1
@@ -51,7 +63,10 @@ class Dashboard extends CommonDBTM
       $loading_label = htmlspecialchars(__('Carregando', 'dashboardplus'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
       $error_label = htmlspecialchars(__('Widget indisponível', 'dashboardplus'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
-      echo "<div class='dashboardplus-page' data-dashboardplus-refresh='{$refresh}' data-dashboardplus-loading='{$loading_label}' data-dashboardplus-error='{$error_label}'>";
+      $theme_class = Html::cleanInputText(Config::getThemeClass($settings));
+      $theme_style = Config::getThemeStyleAttribute($settings);
+
+      echo "<div class='dashboardplus-page {$theme_class}'{$theme_style} data-dashboardplus-refresh='{$refresh}' data-dashboardplus-loading='{$loading_label}' data-dashboardplus-error='{$error_label}'>";
       self::showToolbar($context, $settings);
 
       if (!count($widgets)) {
@@ -64,152 +79,22 @@ class Dashboard extends CommonDBTM
          return;
       }
 
-      self::showDashboardPanels(self::getDashboardSections($widgets), $configs, $context);
+      self::showDashboardPanels(self::getDashboardSections($widgets, $context), $configs, $context);
 
       echo "</div>";
    }
 
-   private static function getDashboardSections(array $widgets): array
+   private static function getDashboardSections(array $widgets, DashboardContext $context): array
    {
-      $overview_metrics = [
-         'tickets_open',
-         'tickets_new',
-         'tickets_assigned',
-         'tickets_planned',
-         'tickets_pending',
-         'tickets_solved',
-         'tickets_closed',
-         'tickets_late',
-      ];
-      $overview_details = [
-         'tickets_resolution_ratio',
-         'tickets_monthly_evolution',
-         'tickets_by_entity',
-         'tickets_by_status',
-         'tickets_by_type',
-         'tickets_by_request_type',
-         'tickets_by_priority',
-         'tickets_pending_reasons',
-      ];
-      $attendance = [
-         'tickets_by_category',
-         'tickets_by_group',
-         'tickets_by_technician',
-      ];
-      $sla = [
-         'sla_compliance',
-         'sla_response_compliance',
-         'average_solve_time_closed',
-      ];
-      $satisfaction = [
-         'satisfaction_average',
-         'satisfaction_answered_count',
-         'satisfaction_response_rate',
-         'satisfaction_general_breakdown',
-         'satisfaction_breakdown',
-         'satisfaction_by_group_average',
-         'satisfaction_by_category_summary',
-         'satisfaction_comments',
-         'satisfaction_answered_by_month',
-         'satisfaction_average_by_month',
-         'tickets_reopened',
-      ];
-      $tasks = [
-         'task_effort_by_technician',
-      ];
-      $asset_metrics = [
-         'asset_total_computers',
-         'asset_total_monitors',
-         'asset_total_printers',
-         'asset_total_phones',
-      ];
-      $asset_details = [
-         'asset_computers_sp_map',
-         'asset_computers_by_location',
-         'asset_computers_by_manufacturer',
-         'asset_computers_by_type',
-         'asset_computers_by_os',
-      ];
-      $distribution_metrics = [
-         'distribution_distinct_tickets',
-         'distribution_automation_rate',
-         'distribution_automation_integral',
-         'distribution_automation_partial',
-         'distribution_manual_tickets',
-         'distribution_transfer_tickets',
-      ];
-      $distribution_details = [
-         'distribution_summary_by_distributor',
-         'distribution_evolution',
-         'distribution_by_category',
-         'distribution_top_distributors',
-         'distribution_actuation',
-         'distribution_top_technicians',
-         'distribution_transfers_by_entity',
-      ];
       $sections = [];
-      foreach ([
-         [
-            'dashboard'  => 'overview',
-            'title'      => __('Métricas principais', 'dashboardplus'),
-            'keys'       => $overview_metrics,
-            'grid_class' => 'dashboardplus-metrics-grid',
-         ],
-         [
-            'dashboard'  => 'overview',
-            'title'      => __('Indicadores da visão geral', 'dashboardplus'),
-            'keys'       => $overview_details,
-            'grid_class' => 'dashboardplus-grid',
-         ],
-         [
-            'dashboard'  => 'attendance',
-            'title'      => __('Atendimento', 'dashboardplus'),
-            'keys'       => $attendance,
-            'grid_class' => 'dashboardplus-grid',
-         ],
-         [
-            'dashboard'  => 'sla',
-            'title'      => __('SLA', 'dashboardplus'),
-            'keys'       => $sla,
-            'grid_class' => 'dashboardplus-grid',
-         ],
-         [
-            'dashboard'  => 'satisfaction',
-            'title'      => __('Nota de satisfação', 'dashboardplus'),
-            'keys'       => $satisfaction,
-            'grid_class' => 'dashboardplus-grid',
-         ],
-         [
-            'dashboard'  => 'tasks',
-            'title'      => __('Tarefas', 'dashboardplus'),
-            'keys'       => $tasks,
-            'grid_class' => 'dashboardplus-grid',
-         ],
-         [
-            'dashboard'  => 'assets',
-            'title'      => __('Métricas de ativos', 'dashboardplus'),
-            'keys'       => $asset_metrics,
-            'grid_class' => 'dashboardplus-metrics-grid',
-         ],
-         [
-            'dashboard'  => 'assets',
-            'title'      => __('Distribuição de ativos', 'dashboardplus'),
-            'keys'       => $asset_details,
-            'grid_class' => 'dashboardplus-grid',
-         ],
-         [
-            'dashboard'  => 'distributions',
-            'title'      => __('Resumo das distribuições', 'dashboardplus'),
-            'keys'       => $distribution_metrics,
-            'grid_class' => 'dashboardplus-metrics-grid',
-         ],
-         [
-            'dashboard'  => 'distributions',
-            'title'      => __('Indicadores de distribuição', 'dashboardplus'),
-            'keys'       => $distribution_details,
-            'grid_class' => 'dashboardplus-grid',
-         ],
-      ] as $definition) {
+      $known = [];
+
+      foreach (self::getDashboardDefinitions() as $definition) {
+         $known = array_merge($known, $definition['keys']);
+         if (!Config::canUseDashboardTabInEntity($definition['dashboard'], $context->getEntitiesId(), $context->isRecursive())) {
+            continue;
+         }
+
          $section_widgets = [];
          foreach ($definition['keys'] as $key) {
             if (isset($widgets[$key])) {
@@ -227,22 +112,10 @@ class Dashboard extends CommonDBTM
          }
       }
 
-      $known = array_merge(
-         $overview_metrics,
-         $overview_details,
-         $attendance,
-         $sla,
-         $satisfaction,
-         $tasks,
-         $asset_metrics,
-         $asset_details,
-         $distribution_metrics,
-         $distribution_details
-      );
       $others = array_diff_key($widgets, array_flip($known));
-      if ($others !== []) {
+      if ($others !== [] && Config::canUseDashboardTabInEntity(Config::DASHBOARD_OVERVIEW, $context->getEntitiesId(), $context->isRecursive())) {
          $sections[] = [
-            'dashboard'  => 'overview',
+            'dashboard'  => Config::DASHBOARD_OVERVIEW,
             'title'      => __('Indicadores adicionais', 'dashboardplus'),
             'widgets'    => $others,
             'grid_class' => 'dashboardplus-grid',
@@ -250,6 +123,174 @@ class Dashboard extends CommonDBTM
       }
 
       return $sections;
+   }
+
+   public static function getWidgetDashboardKey(string $widget_key): string
+   {
+      foreach (self::getDashboardDefinitions() as $definition) {
+         if (in_array($widget_key, $definition['keys'], true)) {
+            return $definition['dashboard'];
+         }
+      }
+
+      return Config::DASHBOARD_OVERVIEW;
+   }
+
+   private static function getDashboardDefinitions(): array
+   {
+      return [
+         [
+            'dashboard'  => Config::DASHBOARD_ATTENDANCE,
+            'title'      => __('Resumo do atendimento', 'dashboardplus'),
+            'keys'       => [
+               'tickets_new',
+               'tickets_unassigned',
+               'tickets_planned',
+               'notification_queue',
+               'tickets_solved',
+               'tickets_pending',
+               'tickets_closed',
+               'tickets_open',
+               'tickets_assigned',
+               'tickets_solved_today',
+               'tickets_priority_medium',
+               'tickets_priority_high',
+               'tickets_priority_critical',
+               'tickets_late',
+            ],
+            'grid_class' => 'dashboardplus-metrics-grid',
+         ],
+         [
+            'dashboard'  => Config::DASHBOARD_ATTENDANCE,
+            'title'      => __('Evolução diária do atendimento', 'dashboardplus'),
+            'keys'       => [
+               'tickets_received_by_day',
+               'tickets_solved_closed_by_day',
+               'tickets_open_by_day',
+               'tickets_monthly_evolution',
+            ],
+            'grid_class' => 'dashboardplus-grid',
+         ],
+         [
+            'dashboard'  => Config::DASHBOARD_ATTENDANCE,
+            'title'      => __('Distribuição do atendimento', 'dashboardplus'),
+            'keys'       => [
+               'tickets_resolution_ratio',
+               'tickets_by_entity',
+               'tickets_by_status',
+               'tickets_by_type',
+               'tickets_by_request_type',
+               'tickets_by_location',
+               'tickets_by_category',
+               'tickets_by_group',
+               'tickets_by_technician',
+               'tickets_by_priority',
+               'tickets_pending_reasons',
+            ],
+            'grid_class' => 'dashboardplus-grid',
+         ],
+         [
+            'dashboard'  => Config::DASHBOARD_SLA,
+            'title'      => __('SLA', 'dashboardplus'),
+            'keys'       => [
+               'sla_compliance',
+               'sla_response_compliance',
+               'sla_by_technician',
+               'sla_by_category',
+               'average_solve_time_closed',
+            ],
+            'grid_class' => 'dashboardplus-grid',
+         ],
+         [
+            'dashboard'  => Config::DASHBOARD_SATISFACTION,
+            'title'      => __('Nota de satisfação', 'dashboardplus'),
+            'keys'       => [
+               'satisfaction_average',
+               'satisfaction_answered_count',
+               'satisfaction_response_rate',
+               'satisfaction_general_breakdown',
+               'satisfaction_breakdown',
+               'satisfaction_by_group_average',
+               'satisfaction_by_category_summary',
+               'satisfaction_comments',
+               'satisfaction_answered_by_month',
+               'satisfaction_average_by_month',
+               'tickets_reopened',
+            ],
+            'grid_class' => 'dashboardplus-grid',
+         ],
+         [
+            'dashboard'  => Config::DASHBOARD_TASKS,
+            'title'      => __('Tarefas', 'dashboardplus'),
+            'keys'       => [
+               'task_effort_by_technician',
+            ],
+            'grid_class' => 'dashboardplus-grid',
+         ],
+         [
+            'dashboard'  => Config::DASHBOARD_ASSETS,
+            'title'      => __('Métricas de ativos', 'dashboardplus'),
+            'keys'       => [
+               'asset_total_computers',
+               'asset_total_monitors',
+               'asset_total_printers',
+               'asset_total_phones',
+            ],
+            'grid_class' => 'dashboardplus-metrics-grid',
+         ],
+         [
+            'dashboard'  => Config::DASHBOARD_ASSETS,
+            'title'      => __('Distribuição de ativos', 'dashboardplus'),
+            'keys'       => [
+               'asset_computers_sp_map',
+               'asset_computers_by_location',
+               'asset_computers_by_manufacturer',
+               'asset_monitors_by_manufacturer',
+               'asset_computers_by_type',
+               'asset_computers_by_os',
+               'asset_computers_by_cpu',
+            ],
+            'grid_class' => 'dashboardplus-grid',
+         ],
+         [
+            'dashboard'  => Config::DASHBOARD_DISTRIBUTIONS,
+            'title'      => __('Resumo das distribuições', 'dashboardplus'),
+            'keys'       => [
+               'distribution_distinct_tickets',
+               'distribution_automation_rate',
+               'distribution_automation_integral',
+               'distribution_automation_partial',
+               'distribution_manual_tickets',
+               'distribution_transfer_tickets',
+            ],
+            'grid_class' => 'dashboardplus-metrics-grid',
+         ],
+         [
+            'dashboard'  => Config::DASHBOARD_DISTRIBUTIONS,
+            'title'      => __('Indicadores de distribuição', 'dashboardplus'),
+            'keys'       => [
+               'distribution_summary_by_distributor',
+               'distribution_evolution',
+               'distribution_by_category',
+               'distribution_top_distributors',
+               'distribution_actuation',
+               'distribution_top_technicians',
+               'distribution_transfers_by_entity',
+            ],
+            'grid_class' => 'dashboardplus-grid',
+         ],
+         [
+            'dashboard'  => Config::DASHBOARD_CAPACITY,
+            'title'      => __('Capacidade operacional', 'dashboardplus'),
+            'keys'       => [
+               'capacity_team_summary',
+               'capacity_technician_load',
+               'capacity_technician_load_table',
+               'capacity_alerts',
+            ],
+            'grid_class' => 'dashboardplus-grid',
+         ],
+      ];
    }
 
    private static function showDashboardPanels(array $sections, array $configs, DashboardContext $context): void
@@ -282,6 +323,10 @@ class Dashboard extends CommonDBTM
          'distributions' => [
             'title' => __('Distribuições', 'dashboardplus'),
             'icon'  => 'ti ti-route',
+         ],
+         'capacity' => [
+            'title' => __('Capacidade', 'dashboardplus'),
+            'icon'  => 'ti ti-users-group',
          ],
       ];
       $grouped = [];
@@ -340,14 +385,16 @@ class Dashboard extends CommonDBTM
 
    private static function showWidgetCard(string $key, $widget, array $config, DashboardContext $context): void
    {
-      $width = min(12, max(3, (int) ($config['width'] ?? $widget->getDefaultSize()['width'])));
+      $default_size = $widget->getDefaultSize();
+      $width = min(12, max(1, (int) ($config['width'] ?? ($default_size['width'] ?? 3))));
+      $height = min(8, max(1, (int) ($config['height'] ?? ($default_size['height'] ?? 2))));
       $query = http_build_query(['widget' => $key] + $context->toQueryParams());
       $url = Config::pluginUrl('/front/widget.ajax.php') . '?' . $query;
       $safe_key = Html::cleanInputText($key);
       $safe_url = htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
       $title = Html::cleanInputText($widget->getTitle());
 
-      echo "<section class='dashboardplus-card dashboardplus-loading' style='grid-column: span {$width};' data-dashboardplus-widget='{$safe_key}' data-url='{$safe_url}'>";
+      echo "<section class='dashboardplus-card dashboardplus-loading' style='grid-column: span {$width}; grid-row: span {$height}; --dp-widget-rows: {$height};' data-dashboardplus-widget='{$safe_key}' data-url='{$safe_url}'>";
       echo "<div class='dashboardplus-loader'>";
       echo "<i class='ti ti-loader-2'></i>";
       echo "<span>" . sprintf(__('Carregando %s', 'dashboardplus'), $title) . "</span>";
@@ -367,7 +414,8 @@ class Dashboard extends CommonDBTM
          || $context->getUsersId() !== null
          || $context->getItilcategoriesId() !== null
          || $context->getType() !== null
-         || $context->getPriority() !== null;
+         || $context->getPriority() !== null
+         || $context->hasCustomSatisfactionPeriod();
       $advanced_class = $has_advanced_filters ? ' is-open' : '';
       $advanced_expanded = $has_advanced_filters ? 'true' : 'false';
 
@@ -488,6 +536,16 @@ class Dashboard extends CommonDBTM
          echo "<option value='{$priority}'{$selected}>" . Html::cleanInputText(Ticket::getPriorityName($priority)) . "</option>";
       }
       echo "</select>";
+      echo "</label>";
+
+      echo "<label>";
+      echo "<span>" . __('Data pesquisa início', 'dashboardplus') . "</span>";
+      echo "<input type='date' class='form-control' name='satisfaction_start' value='" . Html::cleanInputText($context->getSatisfactionStart()) . "'>";
+      echo "</label>";
+
+      echo "<label>";
+      echo "<span>" . __('Data pesquisa fim', 'dashboardplus') . "</span>";
+      echo "<input type='date' class='form-control' name='satisfaction_end' value='" . Html::cleanInputText($context->getSatisfactionEnd()) . "'>";
       echo "</label>";
 
       echo "</div>";

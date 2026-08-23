@@ -63,6 +63,46 @@ class Profile extends GlpiProfile
             'label'    => __('Visualizar indicadores globais do Dashboard Plus', 'dashboardplus'),
             'field'    => Config::RIGHT_GLOBAL,
          ],
+         [
+            'itemtype' => Dashboard::class,
+            'label'    => __('Aba Visão Geral', 'dashboardplus'),
+            'field'    => Config::RIGHT_TAB_OVERVIEW,
+         ],
+         [
+            'itemtype' => Dashboard::class,
+            'label'    => __('Aba Atendimento', 'dashboardplus'),
+            'field'    => Config::RIGHT_TAB_ATTENDANCE,
+         ],
+         [
+            'itemtype' => Dashboard::class,
+            'label'    => __('Aba SLA', 'dashboardplus'),
+            'field'    => Config::RIGHT_TAB_SLA,
+         ],
+         [
+            'itemtype' => Dashboard::class,
+            'label'    => __('Aba Satisfação', 'dashboardplus'),
+            'field'    => Config::RIGHT_TAB_SATISFACTION,
+         ],
+         [
+            'itemtype' => Dashboard::class,
+            'label'    => __('Aba Tarefas', 'dashboardplus'),
+            'field'    => Config::RIGHT_TAB_TASKS,
+         ],
+         [
+            'itemtype' => Dashboard::class,
+            'label'    => __('Aba Ativos', 'dashboardplus'),
+            'field'    => Config::RIGHT_TAB_ASSETS,
+         ],
+         [
+            'itemtype' => Dashboard::class,
+            'label'    => __('Aba Distribuições', 'dashboardplus'),
+            'field'    => Config::RIGHT_TAB_DISTRIBUTIONS,
+         ],
+         [
+            'itemtype' => Dashboard::class,
+            'label'    => __('Aba Capacidade', 'dashboardplus'),
+            'field'    => Config::RIGHT_TAB_CAPACITY,
+         ],
       ];
    }
 
@@ -73,6 +113,14 @@ class Profile extends GlpiProfile
          Config::RIGHT_ADMIN   => 0,
          Config::RIGHT_WIDGETS => 0,
          Config::RIGHT_GLOBAL  => 0,
+         Config::RIGHT_TAB_OVERVIEW      => READ,
+         Config::RIGHT_TAB_ATTENDANCE    => READ,
+         Config::RIGHT_TAB_SLA           => READ,
+         Config::RIGHT_TAB_SATISFACTION  => READ,
+         Config::RIGHT_TAB_TASKS         => READ,
+         Config::RIGHT_TAB_ASSETS        => READ,
+         Config::RIGHT_TAB_DISTRIBUTIONS => READ,
+         Config::RIGHT_TAB_CAPACITY      => READ,
       ];
    }
 
@@ -83,6 +131,14 @@ class Profile extends GlpiProfile
          Config::RIGHT_ADMIN   => ALLSTANDARDRIGHT,
          Config::RIGHT_WIDGETS => UPDATE,
          Config::RIGHT_GLOBAL  => READ,
+         Config::RIGHT_TAB_OVERVIEW      => READ,
+         Config::RIGHT_TAB_ATTENDANCE    => READ,
+         Config::RIGHT_TAB_SLA           => READ,
+         Config::RIGHT_TAB_SATISFACTION  => READ,
+         Config::RIGHT_TAB_TASKS         => READ,
+         Config::RIGHT_TAB_ASSETS        => READ,
+         Config::RIGHT_TAB_DISTRIBUTIONS => READ,
+         Config::RIGHT_TAB_CAPACITY      => READ,
       ], true);
    }
 

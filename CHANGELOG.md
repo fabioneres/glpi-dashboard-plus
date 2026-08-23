@@ -1,5 +1,26 @@
 # Histórico de alterações
 
+## 1.1.0
+
+- Configuração de largura e altura por widget usando os campos existentes de configuração.
+- Aplicação automática do layout recomendado 1.1.0 para organizar o tamanho ideal por tipo de gráfico.
+- Novos indicadores de SLA por técnico e por categoria.
+- Grid do dashboard remodelado com linhas responsivas e melhor aproveitamento de área.
+- Revisão visual do Dashboard Plus com padrão mais coeso de UX corporativa.
+- Reforço da hierarquia de abas, seções, cards, tabelas, rankings e estados de carregamento.
+- Ajustes de responsividade para manter leitura em desktop e mobile.
+- Temas globais customizáveis com paleta executiva, azul/verde, grafite e referência Metabase escura.
+- Paletas de gráficos configuráveis e cor de destaque global para apresentações à gestão.
+- Acabamento visual reforçado em cards, gráficos de pizza/rosca, barras, velocímetros, tabelas e mapa.
+- Layout recomendado 1.1.1 reorganizado para aproximar painéis relacionados, reduzir espaços desproporcionais e evitar corte de informações.
+- Rankings, tabelas, legendas e listas passam a ter rolagem interna e melhor quebra de texto dentro dos cards.
+- Layout recomendado 1.1.2 com grade mais densa, cards mais compactos e composição mais próxima de painel executivo/coeso.
+- Habilitação do Dashboard Plus por entidade, com suporte a recursividade e abas habilitadas por entidade.
+- Permissões granulares por perfil para as abas Visão Geral, Atendimento, Distribuição, Capacidade, SLA, Satisfação, Tarefas e Ativos.
+- Nova aba Capacidade com indicadores de carga operacional, carga ponderada, alertas e tabela de apoio por técnico.
+- Integração desacoplada para capacidade usando dados do Atribuição Inteligente quando disponíveis, com fallback seguro quando a escala não puder ser determinada.
+- Schema 1.1.2 com reparo idempotente para upgrades e inclusão automática da aba Capacidade em configurações antigas que tinham todas as abas habilitadas.
+
 ## 1.0.0
 
 - Versão consolidada do Dashboard Plus para GLPI 10.0.25.

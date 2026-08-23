@@ -21,6 +21,7 @@ global $DB;
 $tables = [
    'glpi_plugin_dashboardplus_configs',
    'glpi_plugin_dashboardplus_configentities',
+   'glpi_plugin_dashboardplus_entityconfigs',
    'glpi_plugin_dashboardplus_widgetconfigs',
 ];
 
@@ -37,6 +38,7 @@ $out = [
    'tables'       => [],
    'rights'       => [],
    'widgets'      => [],
+   'fields'       => [],
    'checks'       => [],
 ];
 
@@ -61,6 +63,12 @@ foreach ($tables as $table) {
       'exists' => $exists,
       'count'  => $exists ? count(iterator_to_array($DB->request(['FROM' => $table]))) : null,
    ];
+}
+
+if ($DB->tableExists('glpi_plugin_dashboardplus_configs')) {
+   foreach (['entity_default_enabled', 'default_enabled_tabs', 'capacity_enabled', 'capacity_cache_ttl', 'capacity_config'] as $field) {
+      $out['fields'][$field] = $DB->fieldExists('glpi_plugin_dashboardplus_configs', $field);
+   }
 }
 
 foreach ($rights as $right) {

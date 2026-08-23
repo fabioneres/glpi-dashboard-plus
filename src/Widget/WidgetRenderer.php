@@ -7,6 +7,7 @@
 
 namespace GlpiPlugin\Dashboardplus\Widget;
 
+use GlpiPlugin\Dashboardplus\Config;
 use Html;
 
 class WidgetRenderer
@@ -779,7 +780,16 @@ class WidgetRenderer
 
    private static function getColor(int $index): string
    {
-      return self::COLORS[$index % count(self::COLORS)];
+      static $colors = null;
+
+      if ($colors === null) {
+         $colors = Config::getPaletteColors();
+         if ($colors === []) {
+            $colors = self::COLORS;
+         }
+      }
+
+      return $colors[$index % count($colors)];
    }
 
    private static function getRowColor(array $row, int $index, array $options = []): string

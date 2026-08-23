@@ -50,17 +50,29 @@ class WidgetRegistry
          TicketsClosedWidget::class,
          TicketsResolutionRatioWidget::class,
          TicketsLateWidget::class,
+         TicketsUnassignedWidget::class,
+         TicketsSolvedTodayWidget::class,
+         NotificationQueueWidget::class,
+         TicketsPriorityMediumWidget::class,
+         TicketsPriorityHighWidget::class,
+         TicketsPriorityCriticalWidget::class,
+         TicketsReceivedByDayWidget::class,
+         TicketsSolvedClosedByDayWidget::class,
+         TicketsOpenByDayWidget::class,
          TicketsMonthlyEvolutionWidget::class,
          TicketsByEntityWidget::class,
          TicketsByStatusWidget::class,
          TicketsByTypeWidget::class,
          TicketsByRequestTypeWidget::class,
          TicketsByPriorityWidget::class,
+         TicketsByLocationWidget::class,
          TicketsByCategoryWidget::class,
          TicketsByGroupWidget::class,
          TicketsByTechnicianWidget::class,
          SlaComplianceWidget::class,
          SlaResponseComplianceWidget::class,
+         SlaByTechnicianWidget::class,
+         SlaByCategoryWidget::class,
          AverageSolveTimeClosedWidget::class,
          SatisfactionAverageWidget::class,
          SatisfactionAnsweredCountWidget::class,
@@ -80,9 +92,11 @@ class WidgetRegistry
          TotalPrintersWidget::class,
          TotalPhonesWidget::class,
          ComputersByManufacturerWidget::class,
+         MonitorsByManufacturerWidget::class,
          ComputersByTypeWidget::class,
          ComputersByLocationWidget::class,
          ComputersByOperatingSystemWidget::class,
+         ComputersByProcessorWidget::class,
          ComputersSaoPauloMapWidget::class,
          DistributionDistinctTicketsWidget::class,
          DistributionAutomationRateWidget::class,
@@ -97,6 +111,10 @@ class WidgetRegistry
          DistributionActuationWidget::class,
          DistributionTopTechniciansWidget::class,
          DistributionTransfersByEntityWidget::class,
+         CapacityTeamSummaryWidget::class,
+         CapacityTechnicianLoadWidget::class,
+         CapacityTechnicianLoadTableWidget::class,
+         CapacityAlertsWidget::class,
       ];
 
       return array_values(array_unique(array_merge($classes, self::$extra_widget_classes)));
@@ -235,9 +253,7 @@ class WidgetRegistry
             ];
 
          case 'breakdown':
-            if (!self::supportsAdvancedVisualOptions($widget)
-               && in_array($widget->getKey(), ['satisfaction_by_category_summary', 'satisfaction_comments'], true)
-            ) {
+            if (self::isTabularWidget($widget)) {
                return self::getDashboardChartVisualizations() + [
                   self::VISUALIZATION_DATATABLE => __('Tabela de dados', 'dashboardplus'),
                ];
@@ -273,12 +289,16 @@ class WidgetRegistry
             return self::VISUALIZATION_RATIO;
 
          case 'breakdown':
-            if (in_array($widget->getKey(), ['satisfaction_by_category_summary', 'satisfaction_comments', 'distribution_summary_by_distributor'], true)) {
+            if (self::isTabularWidget($widget)) {
                return self::VISUALIZATION_DATATABLE;
             }
 
-            if (in_array($widget->getKey(), ['tickets_by_status', 'tickets_monthly_evolution', 'distribution_evolution'], true)) {
+            if (in_array($widget->getKey(), ['tickets_by_status', 'tickets_monthly_evolution', 'tickets_received_by_day', 'tickets_solved_closed_by_day', 'tickets_open_by_day', 'distribution_evolution'], true)) {
                return self::VISUALIZATION_COLUMNS;
+            }
+
+            if (in_array($widget->getKey(), ['tickets_by_location', 'tickets_by_category'], true)) {
+               return self::VISUALIZATION_DONUT;
             }
 
             if ($widget->getKey() === 'distribution_actuation') {
@@ -309,7 +329,19 @@ class WidgetRegistry
 
    public static function supportsAdvancedVisualOptions(WidgetInterface $widget): bool
    {
-      return strpos($widget->getKey(), 'distribution_') === 0;
+      return in_array($widget->getType(), ['breakdown', 'ratio'], true)
+         && $widget->getType() !== 'map_sp';
+   }
+
+   private static function isTabularWidget(WidgetInterface $widget): bool
+   {
+      return in_array($widget->getKey(), [
+         'satisfaction_by_category_summary',
+         'satisfaction_comments',
+         'distribution_summary_by_distributor',
+         'sla_by_technician',
+         'sla_by_category',
+      ], true);
    }
 
    private static function getDashboardChartVisualizations(): array
@@ -367,6 +399,111 @@ class WidgetRegistry
       }
    }
 
+   public static function applyRecommendedWidgetSizes(): void
+   {
+      global $DB;
+
+      if (!$DB->tableExists(Config::getWidgetConfigTable())) {
+         return;
+      }
+
+      foreach (self::getRecommendedWidgetSizes() as $key => $size) {
+         $payload = [
+            'width'    => max(1, min(12, (int) ($size['width'] ?? 3))),
+            'height'   => max(1, min(8, (int) ($size['height'] ?? 2))),
+            'date_mod' => date('Y-m-d H:i:s'),
+         ];
+
+         if (isset($size['config']) && is_array($size['config'])) {
+            $payload['config'] = json_encode($size['config'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+         }
+
+         $DB->update(Config::getWidgetConfigTable(), $payload, [
+            'widget_key' => $key,
+         ]);
+      }
+   }
+
+   private static function getRecommendedWidgetSizes(): array
+   {
+      return [
+         'tickets_new'                 => ['width' => 3, 'height' => 2],
+         'tickets_unassigned'          => ['width' => 3, 'height' => 2],
+         'tickets_planned'             => ['width' => 3, 'height' => 2],
+         'notification_queue'          => ['width' => 6, 'height' => 2],
+         'tickets_solved'              => ['width' => 3, 'height' => 2],
+         'tickets_pending'             => ['width' => 3, 'height' => 2],
+         'tickets_closed'              => ['width' => 3, 'height' => 2],
+         'tickets_open'                => ['width' => 3, 'height' => 2],
+         'tickets_assigned'            => ['width' => 3, 'height' => 2],
+         'tickets_solved_today'        => ['width' => 3, 'height' => 2],
+         'tickets_priority_medium'     => ['width' => 3, 'height' => 2],
+         'tickets_priority_high'       => ['width' => 3, 'height' => 2],
+         'tickets_priority_critical'   => ['width' => 3, 'height' => 2],
+         'tickets_late'                => ['width' => 3, 'height' => 2],
+         'tickets_received_by_day'     => ['width' => 6, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_COLUMNS, 'limit' => 10, 'show_labels' => 1, 'gradient' => 1]],
+         'tickets_solved_closed_by_day'=> ['width' => 6, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_COLUMNS, 'limit' => 10, 'show_labels' => 1, 'gradient' => 1]],
+         'tickets_open_by_day'         => ['width' => 6, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_COLUMNS, 'limit' => 10, 'show_labels' => 1, 'gradient' => 1]],
+         'tickets_monthly_evolution'   => ['width' => 6, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_COLUMNS, 'limit' => 12, 'show_labels' => 1, 'gradient' => 1]],
+         'tickets_resolution_ratio'    => ['width' => 4, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_DONUT, 'limit' => 6, 'show_labels' => 1, 'gradient' => 0]],
+         'tickets_by_entity'           => ['width' => 4, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 6, 'show_labels' => 1, 'gradient' => 1]],
+         'tickets_by_status'           => ['width' => 4, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_COLUMNS, 'limit' => 6, 'show_labels' => 1, 'gradient' => 1]],
+         'tickets_by_type'             => ['width' => 4, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_DONUT, 'limit' => 5, 'show_labels' => 1, 'gradient' => 0]],
+         'tickets_by_request_type'     => ['width' => 4, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_DONUT, 'limit' => 5, 'show_labels' => 1, 'gradient' => 0]],
+         'tickets_by_location'         => ['width' => 4, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_DONUT, 'limit' => 7, 'show_labels' => 1, 'gradient' => 0]],
+         'tickets_by_category'         => ['width' => 8, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 8, 'show_labels' => 1, 'gradient' => 1]],
+         'tickets_by_group'            => ['width' => 6, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 8, 'show_labels' => 1, 'gradient' => 1]],
+         'tickets_by_technician'       => ['width' => 6, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 8, 'show_labels' => 1, 'gradient' => 1]],
+         'tickets_by_priority'         => ['width' => 4, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_COLUMNS, 'limit' => 5, 'show_labels' => 1, 'gradient' => 1]],
+         'tickets_pending_reasons'     => ['width' => 4, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 6, 'show_labels' => 1, 'gradient' => 1]],
+         'sla_compliance'              => ['width' => 4, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_SPEEDOMETER, 'limit' => 6, 'show_labels' => 1, 'gradient' => 0]],
+         'sla_response_compliance'     => ['width' => 4, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_SPEEDOMETER, 'limit' => 6, 'show_labels' => 1, 'gradient' => 0]],
+         'sla_by_technician'           => ['width' => 6, 'height' => 5, 'config' => ['visualization' => self::VISUALIZATION_DATATABLE, 'limit' => 8, 'show_labels' => 1, 'gradient' => 0]],
+         'sla_by_category'             => ['width' => 6, 'height' => 5, 'config' => ['visualization' => self::VISUALIZATION_DATATABLE, 'limit' => 8, 'show_labels' => 1, 'gradient' => 0]],
+         'average_solve_time_closed'   => ['width' => 4, 'height' => 2],
+         'satisfaction_average'        => ['width' => 4, 'height' => 2],
+         'satisfaction_answered_count' => ['width' => 4, 'height' => 2],
+         'satisfaction_response_rate'  => ['width' => 4, 'height' => 2],
+         'satisfaction_general_breakdown' => ['width' => 4, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_DONUT, 'limit' => 6, 'show_labels' => 1, 'gradient' => 0]],
+         'satisfaction_breakdown'      => ['width' => 4, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_DONUT, 'limit' => 6, 'show_labels' => 1, 'gradient' => 0]],
+         'satisfaction_by_group_average' => ['width' => 4, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 6, 'show_labels' => 1, 'gradient' => 1]],
+         'satisfaction_by_category_summary' => ['width' => 12, 'height' => 5, 'config' => ['visualization' => self::VISUALIZATION_DATATABLE, 'limit' => 10, 'show_labels' => 1, 'gradient' => 0]],
+         'satisfaction_comments'       => ['width' => 12, 'height' => 5, 'config' => ['visualization' => self::VISUALIZATION_DATATABLE, 'limit' => 10, 'show_labels' => 1, 'gradient' => 0]],
+         'satisfaction_answered_by_month' => ['width' => 6, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_COLUMNS, 'limit' => 10, 'show_labels' => 1, 'gradient' => 1]],
+         'satisfaction_average_by_month' => ['width' => 6, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_COLUMNS, 'limit' => 10, 'show_labels' => 1, 'gradient' => 1]],
+         'tickets_reopened'            => ['width' => 3, 'height' => 2],
+         'task_effort_by_technician'   => ['width' => 12, 'height' => 4],
+         'asset_total_computers'       => ['width' => 3, 'height' => 2],
+         'asset_total_monitors'        => ['width' => 3, 'height' => 2],
+         'asset_total_printers'        => ['width' => 3, 'height' => 2],
+         'asset_total_phones'          => ['width' => 3, 'height' => 2],
+         'asset_computers_sp_map'      => ['width' => 8, 'height' => 5, 'config' => ['visualization' => self::VISUALIZATION_DATATABLE]],
+         'asset_computers_by_location' => ['width' => 4, 'height' => 5, 'config' => ['visualization' => self::VISUALIZATION_DONUT, 'limit' => 8, 'show_labels' => 1, 'gradient' => 0]],
+         'asset_computers_by_manufacturer' => ['width' => 4, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 6, 'show_labels' => 1, 'gradient' => 1]],
+         'asset_monitors_by_manufacturer' => ['width' => 4, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 6, 'show_labels' => 1, 'gradient' => 1]],
+         'asset_computers_by_type'     => ['width' => 4, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 6, 'show_labels' => 1, 'gradient' => 1]],
+         'asset_computers_by_os'       => ['width' => 6, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 8, 'show_labels' => 1, 'gradient' => 1]],
+         'asset_computers_by_cpu'      => ['width' => 6, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_DONUT, 'limit' => 8, 'show_labels' => 1, 'gradient' => 0]],
+         'distribution_distinct_tickets' => ['width' => 3, 'height' => 2],
+         'distribution_automation_rate'=> ['width' => 3, 'height' => 2],
+         'distribution_automation_integral' => ['width' => 3, 'height' => 2],
+         'distribution_automation_partial' => ['width' => 3, 'height' => 2],
+         'distribution_manual_tickets' => ['width' => 3, 'height' => 2],
+         'distribution_transfer_tickets' => ['width' => 3, 'height' => 2],
+         'distribution_summary_by_distributor' => ['width' => 12, 'height' => 5, 'config' => ['visualization' => self::VISUALIZATION_DATATABLE, 'limit' => 10, 'show_labels' => 1, 'gradient' => 0]],
+         'distribution_evolution'      => ['width' => 12, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_COLUMNS, 'limit' => 10, 'show_labels' => 1, 'gradient' => 1]],
+         'distribution_by_category'    => ['width' => 6, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 8, 'show_labels' => 1, 'gradient' => 1]],
+         'distribution_top_distributors' => ['width' => 6, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 8, 'show_labels' => 1, 'gradient' => 1]],
+         'distribution_actuation'      => ['width' => 6, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_DONUT, 'limit' => 8, 'show_labels' => 1, 'gradient' => 0]],
+         'distribution_top_technicians'=> ['width' => 6, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 8, 'show_labels' => 1, 'gradient' => 1]],
+         'distribution_transfers_by_entity' => ['width' => 6, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 8, 'show_labels' => 1, 'gradient' => 1]],
+         'capacity_team_summary'      => ['width' => 6, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_SUMMARY_NUMBERS, 'limit' => 5, 'show_labels' => 1, 'gradient' => 0]],
+         'capacity_technician_load'   => ['width' => 6, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_BARS, 'limit' => 12, 'show_labels' => 1, 'gradient' => 1]],
+         'capacity_technician_load_table' => ['width' => 12, 'height' => 4, 'config' => ['visualization' => self::VISUALIZATION_DATATABLE, 'limit' => 20, 'show_labels' => 1, 'gradient' => 0]],
+         'capacity_alerts'            => ['width' => 12, 'height' => 3, 'config' => ['visualization' => self::VISUALIZATION_DATATABLE, 'limit' => 20, 'show_labels' => 1, 'gradient' => 0]],
+      ];
+   }
+
    public static function saveWidgetSettings(array $input): void
    {
       global $DB;
@@ -382,6 +519,16 @@ class WidgetRegistry
       $orders = $input['widget_order'] ?? [];
       if (!is_array($orders)) {
          $orders = [];
+      }
+
+      $widths = $input['widget_width'] ?? [];
+      if (!is_array($widths)) {
+         $widths = [];
+      }
+
+      $heights = $input['widget_height'] ?? [];
+      if (!is_array($heights)) {
+         $heights = [];
       }
 
       $visualizations = $input['widget_visualization'] ?? [];
@@ -419,6 +566,7 @@ class WidgetRegistry
       foreach (self::getAll() as $key => $widget) {
          $current_config = $configs[$key] ?? self::getWidgetConfig($key);
          $options = self::getWidgetOptions($current_config);
+         $default_size = $widget->getDefaultSize();
          $options['visualization'] = self::normalizeVisualization(
             $widget,
             (string) ($visualizations[$key] ?? ($options['visualization'] ?? ''))
@@ -447,6 +595,8 @@ class WidgetRegistry
          $DB->update(Config::getWidgetConfigTable(), [
             'is_enabled'   => array_key_exists($key, $enabled) ? 1 : 0,
             'display_order' => max(0, (int) ($orders[$key] ?? 999)),
+            'width'         => max(1, min(12, (int) ($widths[$key] ?? ($current_config['width'] ?? ($default_size['width'] ?? 3))))),
+            'height'        => max(1, min(8, (int) ($heights[$key] ?? ($current_config['height'] ?? ($default_size['height'] ?? 2))))),
             'config'        => json_encode($options, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'date_mod'      => date('Y-m-d H:i:s'),
          ], [

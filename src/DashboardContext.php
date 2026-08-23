@@ -23,6 +23,8 @@ class DashboardContext
    private $settings;
    private $configured_entities;
    private $period_days;
+   private $satisfaction_start;
+   private $satisfaction_end;
 
    public function __construct(
       string $start,
@@ -36,7 +38,9 @@ class DashboardContext
       ?int $priority,
       array $settings,
       array $configured_entities = [],
-      int $period_days = 30
+      int $period_days = 30,
+      ?string $satisfaction_start = null,
+      ?string $satisfaction_end = null
    )
    {
       $this->start = $start;
@@ -51,6 +55,8 @@ class DashboardContext
       $this->settings = $settings;
       $this->configured_entities = $configured_entities;
       $this->period_days = $period_days;
+      $this->satisfaction_start = $satisfaction_start ?: $start;
+      $this->satisfaction_end = $satisfaction_end ?: $end;
    }
 
    public static function fromRequest(array $request, array $settings): self
@@ -71,6 +77,19 @@ class DashboardContext
 
       if ($start > $end) {
          [$start, $end] = [$end, $start];
+      }
+
+      $satisfaction_start = self::normalizeDate(
+         (string) ($request['satisfaction_start'] ?? ''),
+         $start
+      );
+      $satisfaction_end = self::normalizeDate(
+         (string) ($request['satisfaction_end'] ?? ''),
+         $end
+      );
+
+      if ($satisfaction_start > $satisfaction_end) {
+         [$satisfaction_start, $satisfaction_end] = [$satisfaction_end, $satisfaction_start];
       }
 
       $configured_entities = Config::getConfiguredEntityRows();
@@ -106,7 +125,9 @@ class DashboardContext
          $priority,
          $settings,
          $configured_entities,
-         $period_days
+         $period_days,
+         $satisfaction_start,
+         $satisfaction_end
       );
    }
 
@@ -170,6 +191,31 @@ class DashboardContext
       return $this->period_days;
    }
 
+   public function getSatisfactionStart(): string
+   {
+      return $this->satisfaction_start;
+   }
+
+   public function getSatisfactionEnd(): string
+   {
+      return $this->satisfaction_end;
+   }
+
+   public function getSatisfactionStartDateTime(): string
+   {
+      return $this->satisfaction_start . ' 00:00:00';
+   }
+
+   public function getSatisfactionEndDateTime(): string
+   {
+      return $this->satisfaction_end . ' 23:59:59';
+   }
+
+   public function hasCustomSatisfactionPeriod(): bool
+   {
+      return $this->satisfaction_start !== $this->start || $this->satisfaction_end !== $this->end;
+   }
+
    public function isAllHistory(): bool
    {
       return $this->period_days === 0 && $this->start === '1970-01-01';
@@ -230,6 +276,8 @@ class DashboardContext
          'type'         => $this->type,
          'priority'     => $this->priority,
          'period_days'  => $this->period_days,
+         'satisfaction_start' => $this->satisfaction_start,
+         'satisfaction_end'   => $this->satisfaction_end,
       ];
    }
 
@@ -248,6 +296,8 @@ class DashboardContext
          'type'         => $this->type,
          'priority'     => $this->priority,
          'period_days'  => $this->period_days,
+         'satisfaction_start' => $this->satisfaction_start,
+         'satisfaction_end'   => $this->satisfaction_end,
          'scope'        => $this->configured_entities,
          'entities'     => $_SESSION['glpiactiveentities_string'] ?? '',
       ]));

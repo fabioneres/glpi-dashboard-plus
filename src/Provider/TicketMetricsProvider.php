@@ -147,6 +147,275 @@ class TicketMetricsProvider
       ];
    }
 
+   public function countUnassigned(DashboardContext $context): array
+   {
+      $table = Ticket::getTable();
+      $ticket_user_table = 'glpi_tickets_users';
+      $group_ticket_table = 'glpi_groups_tickets';
+      $where = $this->getBaseWhere($context);
+      $where["$table.status"] = Ticket::getNotSolvedStatusArray();
+      $where[] = new QueryExpression("$ticket_user_table.id IS NULL");
+      $where[] = new QueryExpression("$group_ticket_table.id IS NULL");
+
+      $criteria = $this->withTicketProfileCriteria([
+         'SELECT' => [
+            'COUNT DISTINCT' => "$table.id AS total",
+         ],
+         'FROM' => $table,
+         'LEFT JOIN' => [
+            $ticket_user_table => [
+               'ON' => [
+                  $ticket_user_table => 'tickets_id',
+                  $table             => 'id',
+                  [
+                     'AND' => [
+                        "$ticket_user_table.type" => CommonITILActor::ASSIGN,
+                     ],
+                  ],
+               ],
+            ],
+            $group_ticket_table => [
+               'ON' => [
+                  $group_ticket_table => 'tickets_id',
+                  $table              => 'id',
+                  [
+                     'AND' => [
+                        "$group_ticket_table.type" => CommonITILActor::ASSIGN,
+                     ],
+                  ],
+               ],
+            ],
+         ],
+         'WHERE' => $where,
+      ], $context, true, true);
+
+      $row = $this->getReadDB()->request($criteria)->current();
+
+      return [
+         'number' => (int) ($row['total'] ?? 0),
+         'url'    => $this->ticketSearchUrl($context, Ticket::getNotSolvedStatusArray()),
+         'color'  => '#f59e0b',
+      ];
+   }
+
+   public function countSolvedToday(DashboardContext $context): array
+   {
+      $today = date('Y-m-d');
+      $table = Ticket::getTable();
+      $where = $this->getBaseWhereForPeriod($context, self::DATE_SOLVED, $today, $today);
+      $where["$table.status"] = array_merge(Ticket::getSolvedStatusArray(), Ticket::getClosedStatusArray());
+      $where[] = new QueryExpression("$table.solvedate IS NOT NULL");
+
+      $criteria = $this->withTicketProfileCriteria([
+         'SELECT' => [
+            'COUNT DISTINCT' => "$table.id AS total",
+         ],
+         'FROM'  => $table,
+         'WHERE' => $where,
+      ], $context);
+
+      $row = $this->getReadDB()->request($criteria)->current();
+
+      return [
+         'number' => (int) ($row['total'] ?? 0),
+         'url'    => $this->ticketSearchUrlForPeriod($context, $today, $today, [], '', [], self::DATE_SOLVED),
+         'color'  => '#2563eb',
+      ];
+   }
+
+   public function countNotificationQueue(DashboardContext $context): array
+   {
+      $table = 'glpi_queuednotifications';
+      $db = $this->getReadDB();
+      if (!method_exists($db, 'tableExists') || !$db->tableExists($table)) {
+         return [
+            'number' => 0,
+            'color'  => '#16a34a',
+         ];
+      }
+
+      $where = [];
+      foreach (['sent_time', 'sent_try', 'is_deleted'] as $field) {
+         if ($this->fieldExists($table, $field)) {
+            if ($field === 'sent_time') {
+               $where[] = new QueryExpression("$table.sent_time IS NULL");
+            } elseif ($field === 'is_deleted') {
+               $where["$table.is_deleted"] = 0;
+            }
+         }
+      }
+
+      $criteria = [
+         'SELECT' => [
+            'COUNT DISTINCT' => "$table.id AS total",
+         ],
+         'FROM' => $table,
+      ];
+      if ($where !== []) {
+         $criteria['WHERE'] = $where;
+      }
+
+      $row = $db->request($criteria)->current();
+      $total = (int) ($row['total'] ?? 0);
+
+      return [
+         'number' => $total,
+         'color'  => $total > 0 ? '#d97706' : '#16a34a',
+      ];
+   }
+
+   public function countByPriority(DashboardContext $context, int $priority): array
+   {
+      return $this->countByPriorities($context, [$priority]);
+   }
+
+   public function countByPriorities(DashboardContext $context, array $priorities): array
+   {
+      $table = Ticket::getTable();
+      $where = $this->getBaseWhere($context);
+      $priorities = array_values(array_filter(array_map('intval', $priorities), static function(int $priority): bool {
+         return $priority >= 1 && $priority <= 6;
+      }));
+      if ($priorities === []) {
+         $priorities = [3];
+      }
+      $where["$table.priority"] = $priorities;
+
+      $criteria = $this->withTicketProfileCriteria([
+         'SELECT' => [
+            'COUNT DISTINCT' => "$table.id AS total",
+         ],
+         'FROM'  => $table,
+         'WHERE' => $where,
+      ], $context);
+
+      $row = $this->getReadDB()->request($criteria)->current();
+
+      return [
+         'number' => (int) ($row['total'] ?? 0),
+         'url'    => count($priorities) === 1 ? $this->ticketSearchUrl($context, [], '', [
+            [
+               'field'      => 3,
+               'searchtype' => 'equals',
+               'value'      => reset($priorities),
+            ],
+         ]) : '',
+         'color'  => $this->getPriorityColor(max($priorities)),
+      ];
+   }
+
+   public function receivedByDay(DashboardContext $context, int $limit = 31): array
+   {
+      return $this->dailyTicketCounts($context, self::DATE_OPEN, $limit);
+   }
+
+   public function solvedClosedByDay(DashboardContext $context, int $limit = 31): array
+   {
+      $solved = $this->dailyCounts($context, self::DATE_SOLVED, $limit, true);
+      $closed = $this->dailyCounts($context, self::DATE_CLOSED, $limit, true);
+      $range = $this->getLimitedDateRange($context, $limit);
+      $rows = [];
+
+      foreach ($this->getDayBuckets($range['start'], $range['end']) as $bucket) {
+         $solved_count = (int) ($solved[$bucket['key']] ?? 0);
+         $closed_count = (int) ($closed[$bucket['key']] ?? 0);
+         $total = $solved_count + $closed_count;
+         $rows[] = [
+            'label'  => $bucket['label'],
+            'number' => $total,
+            'value'  => sprintf(
+               __('%1$s sol. / %2$s enc.', 'dashboardplus'),
+               number_format($solved_count, 0, ',', '.'),
+               number_format($closed_count, 0, ',', '.')
+            ),
+            'color'  => '#2563eb',
+         ];
+      }
+
+      return $this->wrapRows($rows);
+   }
+
+   public function openByDay(DashboardContext $context, int $limit = 30): array
+   {
+      $table = Ticket::getTable();
+      $range = $this->getLimitedDateRange($context, $limit);
+      $created_where = $this->getBaseWhereForPeriod($context, self::DATE_OPEN, $range['start'], $range['end']);
+
+      $criteria = $this->withTicketProfileCriteria([
+         'SELECT' => [
+            new QueryExpression("DATE($table.date) AS period_key"),
+            'COUNT DISTINCT' => "$table.id AS total",
+         ],
+         'FROM'  => $table,
+         'WHERE' => array_merge($created_where, [
+            "$table.status" => Ticket::getNotSolvedStatusArray(),
+         ]),
+         'GROUPBY' => [new QueryExpression("DATE($table.date)")],
+         'ORDER'   => [new QueryExpression('period_key ASC')],
+      ], $context);
+
+      $counts = [];
+      foreach ($this->getReadDB()->request($criteria) as $row) {
+         $counts[(string) $row['period_key']] = (int) $row['total'];
+      }
+
+      $rows = [];
+      foreach ($this->getDayBuckets($range['start'], $range['end']) as $bucket) {
+         $rows[] = [
+            'label'  => $bucket['label'],
+            'number' => (int) ($counts[$bucket['key']] ?? 0),
+            'url'    => $this->ticketSearchUrlForPeriod($context, $bucket['key'], $bucket['key'], Ticket::getNotSolvedStatusArray()),
+            'color'  => '#16a34a',
+         ];
+      }
+
+      return $this->wrapRows($rows);
+   }
+
+   public function breakdownByLocation(DashboardContext $context, int $limit = 10): array
+   {
+      $table = Ticket::getTable();
+      $location_table = 'glpi_locations';
+
+      $criteria = $this->withTicketProfileCriteria([
+         'SELECT' => [
+            "$table.locations_id AS item_key",
+            "$location_table.completename AS label",
+            'COUNT DISTINCT' => "$table.id AS total",
+         ],
+         'FROM' => $table,
+         'LEFT JOIN' => [
+            $location_table => [
+               'ON' => [
+                  $location_table => 'id',
+                  $table          => 'locations_id',
+               ],
+            ],
+         ],
+         'WHERE'   => $this->getBaseWhere($context),
+         'GROUPBY' => ["$table.locations_id", "$location_table.completename"],
+         'ORDER'   => ['total DESC'],
+         'LIMIT'   => $limit,
+      ], $context);
+
+      $rows = [];
+      foreach ($this->getReadDB()->request($criteria) as $row) {
+         $rows[] = [
+            'label'  => (string) ($row['label'] ?: __('Sem localização', 'dashboardplus')),
+            'number' => (int) $row['total'],
+            'url'    => $this->ticketSearchUrl($context, [], '', [
+               [
+                  'field'      => 83,
+                  'searchtype' => 'equals',
+                  'value'      => (int) ($row['item_key'] ?? 0),
+               ],
+            ]),
+         ];
+      }
+
+      return $this->wrapRows($rows);
+   }
+
    public function breakdownByStatus(DashboardContext $context): array
    {
       $table = Ticket::getTable();
@@ -510,9 +779,10 @@ class TicketMetricsProvider
                ],
             ],
          ],
-         'WHERE'   => array_merge($this->getBaseWhere($context), [
-            "$satisfaction_table.satisfaction" => ['>', 0],
-         ]),
+         'WHERE'   => array_merge(
+            $this->getBaseWhere($context),
+            $this->getAnsweredSatisfactionWhere($context, $satisfaction_table)
+         ),
          'GROUPBY' => ["$satisfaction_table.satisfaction"],
          'ORDER'   => ["$satisfaction_table.satisfaction ASC"],
       ], $context);
@@ -553,12 +823,15 @@ class TicketMetricsProvider
    {
       $table = Ticket::getTable();
       $satisfaction_table = 'glpi_ticketsatisfactions';
+      $date_condition = $this->getSatisfactionDateCondition($context, $satisfaction_table);
 
       $criteria = $this->withTicketProfileCriteria([
          'SELECT' => [
             new QueryExpression(
                "CASE
-                  WHEN $satisfaction_table.satisfaction IS NULL OR $satisfaction_table.satisfaction = 0 THEN 0
+                  WHEN $satisfaction_table.satisfaction IS NULL
+                     OR $satisfaction_table.satisfaction = 0
+                     OR NOT ($date_condition) THEN 0
                   ELSE $satisfaction_table.satisfaction
                END AS item_key"
             ),
@@ -616,9 +889,10 @@ class TicketMetricsProvider
                ],
             ],
          ],
-         'WHERE' => array_merge($this->getBaseWhere($context), [
-            "$satisfaction_table.satisfaction" => ['>', 0],
-         ]),
+         'WHERE' => array_merge(
+            $this->getBaseWhere($context),
+            $this->getAnsweredSatisfactionWhere($context, $satisfaction_table)
+         ),
       ], $context);
 
       $row = $this->getReadDB()->request($criteria)->current();
@@ -694,9 +968,10 @@ class TicketMetricsProvider
                ],
             ],
          ],
-         'WHERE' => array_merge($this->getBaseWhere($context), [
-            "$satisfaction_table.satisfaction" => ['>', 0],
-         ]),
+         'WHERE' => array_merge(
+            $this->getBaseWhere($context),
+            $this->getAnsweredSatisfactionWhere($context, $satisfaction_table)
+         ),
          'GROUPBY' => ["$group_table.id", "$group_table.completename"],
          'ORDER'   => ['average_score DESC', 'answered DESC'],
          'LIMIT'   => $limit,
@@ -720,13 +995,14 @@ class TicketMetricsProvider
       $table = Ticket::getTable();
       $category_table = 'glpi_itilcategories';
       $satisfaction_table = 'glpi_ticketsatisfactions';
+      $date_condition = $this->getSatisfactionDateCondition($context, $satisfaction_table);
 
       $criteria = $this->withTicketProfileCriteria([
          'SELECT' => [
             "$category_table.completename AS category_name",
             'COUNT DISTINCT' => "$table.id AS total_tickets",
-            new QueryExpression("COUNT(DISTINCT CASE WHEN $satisfaction_table.satisfaction > 0 THEN $table.id END) AS answered"),
-            new QueryExpression("ROUND(AVG(CASE WHEN $satisfaction_table.satisfaction > 0 THEN $satisfaction_table.satisfaction END), 2) AS average_score"),
+            new QueryExpression("COUNT(DISTINCT CASE WHEN $satisfaction_table.satisfaction > 0 AND $date_condition THEN $table.id END) AS answered"),
+            new QueryExpression("ROUND(AVG(CASE WHEN $satisfaction_table.satisfaction > 0 AND $date_condition THEN $satisfaction_table.satisfaction END), 2) AS average_score"),
          ],
          'FROM' => $table,
          'LEFT JOIN' => [
@@ -802,9 +1078,10 @@ class TicketMetricsProvider
                ],
             ],
          ],
-         'WHERE' => array_merge($this->getBaseWhere($context), [
-            "$satisfaction_table.satisfaction" => ['>', 0],
-         ]),
+         'WHERE' => array_merge(
+            $this->getBaseWhere($context),
+            $this->getAnsweredSatisfactionWhere($context, $satisfaction_table)
+         ),
          'ORDER' => ["$satisfaction_table.date_answered DESC", "$table.id DESC"],
          'LIMIT' => $limit,
       ], $context);
@@ -832,7 +1109,7 @@ class TicketMetricsProvider
    {
       $table = Ticket::getTable();
       $satisfaction_table = 'glpi_ticketsatisfactions';
-      $period_expression = "DATE_FORMAT($table.date, '%Y-%m')";
+      $period_expression = "DATE_FORMAT($satisfaction_table.date_answered, '%Y-%m')";
 
       $criteria = $this->withTicketProfileCriteria([
          'SELECT' => [
@@ -840,7 +1117,7 @@ class TicketMetricsProvider
             new QueryExpression("COUNT(DISTINCT CASE WHEN $satisfaction_table.satisfaction > 0 THEN $table.id END) AS answered"),
          ],
          'FROM' => $table,
-         'LEFT JOIN' => [
+         'INNER JOIN' => [
             $satisfaction_table => [
                'ON' => [
                   $satisfaction_table => 'tickets_id',
@@ -848,7 +1125,10 @@ class TicketMetricsProvider
                ],
             ],
          ],
-         'WHERE'   => $this->getBaseWhere($context),
+         'WHERE'   => array_merge(
+            $this->getBaseWhere($context),
+            $this->getAnsweredSatisfactionWhere($context, $satisfaction_table)
+         ),
          'GROUPBY' => [new QueryExpression($period_expression)],
          'ORDER'   => [new QueryExpression('period_key ASC')],
       ], $context);
@@ -859,7 +1139,7 @@ class TicketMetricsProvider
       }
 
       $rows = [];
-      foreach ($this->getMonthBuckets($context) as $bucket) {
+      foreach ($this->getMonthBucketsForRange($context->getSatisfactionStart(), $context->getSatisfactionEnd()) as $bucket) {
          $rows[] = [
             'label'  => $bucket['label'],
             'number' => (int) ($counts[$bucket['key']] ?? 0),
@@ -874,7 +1154,7 @@ class TicketMetricsProvider
    {
       $table = Ticket::getTable();
       $satisfaction_table = 'glpi_ticketsatisfactions';
-      $period_expression = "DATE_FORMAT($table.date, '%Y-%m')";
+      $period_expression = "DATE_FORMAT($satisfaction_table.date_answered, '%Y-%m')";
 
       $criteria = $this->withTicketProfileCriteria([
          'SELECT' => [
@@ -890,9 +1170,10 @@ class TicketMetricsProvider
                ],
             ],
          ],
-         'WHERE' => array_merge($this->getBaseWhere($context), [
-            "$satisfaction_table.satisfaction" => ['>', 0],
-         ]),
+         'WHERE' => array_merge(
+            $this->getBaseWhere($context),
+            $this->getAnsweredSatisfactionWhere($context, $satisfaction_table)
+         ),
          'GROUPBY' => [new QueryExpression($period_expression)],
          'ORDER'   => [new QueryExpression('period_key ASC')],
       ], $context);
@@ -903,7 +1184,7 @@ class TicketMetricsProvider
       }
 
       $rows = [];
-      foreach ($this->getMonthBuckets($context) as $bucket) {
+      foreach ($this->getMonthBucketsForRange($context->getSatisfactionStart(), $context->getSatisfactionEnd()) as $bucket) {
          $average = (float) ($averages[$bucket['key']] ?? 0);
          $rows[] = [
             'label'  => $bucket['label'],
@@ -1176,6 +1457,127 @@ class TicketMetricsProvider
       ];
    }
 
+   public function slaComplianceByTechnician(DashboardContext $context, int $limit = 10): array
+   {
+      $table = Ticket::getTable();
+      $ticket_user_table = 'glpi_tickets_users';
+      $user_table = 'glpi_users';
+      $where = $this->getBaseWhere($context);
+      $where["$ticket_user_table.type"] = CommonITILActor::ASSIGN;
+      $where["$user_table.is_deleted"] = 0;
+
+      $solved_statuses = $this->getSolvedClosedStatusSql();
+      $complied_sql = "$table.time_to_resolve IS NOT NULL
+         AND $table.solvedate IS NOT NULL
+         AND $table.solvedate <= $table.time_to_resolve
+         AND $table.status IN ($solved_statuses)";
+      $violated_sql = "$table.time_to_resolve IS NOT NULL
+         AND (
+            ($table.solvedate IS NOT NULL AND $table.solvedate > $table.time_to_resolve)
+            OR ($table.solvedate IS NULL AND $table.status NOT IN ($solved_statuses) AND $table.time_to_resolve < NOW())
+         )";
+
+      $criteria = $this->withTicketProfileCriteria([
+         'SELECT' => [
+            "$user_table.id AS item_key",
+            "$user_table.firstname AS firstname",
+            "$user_table.realname AS realname",
+            "$user_table.name AS login",
+            'COUNT DISTINCT' => "$table.id AS total",
+            new QueryExpression("COUNT(DISTINCT CASE WHEN $complied_sql THEN $table.id END) AS complied"),
+            new QueryExpression("COUNT(DISTINCT CASE WHEN $violated_sql THEN $table.id END) AS violated"),
+            new QueryExpression("COUNT(DISTINCT CASE WHEN $table.time_to_resolve IS NULL THEN $table.id END) AS without_target"),
+         ],
+         'FROM' => $table,
+         'INNER JOIN' => [
+            $ticket_user_table => [
+               'ON' => [
+                  $ticket_user_table => 'tickets_id',
+                  $table             => 'id',
+               ],
+            ],
+            $user_table => [
+               'ON' => [
+                  $user_table        => 'id',
+                  $ticket_user_table => 'users_id',
+               ],
+            ],
+         ],
+         'WHERE'   => $where,
+         'GROUPBY' => ["$user_table.id", "$user_table.firstname", "$user_table.realname", "$user_table.name"],
+         'ORDER'   => ['violated DESC', 'total DESC'],
+         'LIMIT'   => $limit,
+      ], $context, false, true);
+
+      $rows = [];
+      foreach ($this->getReadDB()->request($criteria) as $row) {
+         $label = trim((string) ($row['firstname'] ?? '') . ' ' . (string) ($row['realname'] ?? ''));
+         if ($label === '') {
+            $label = (string) ($row['login'] ?? __('Desconhecido', 'dashboardplus'));
+         }
+         $rows[] = $this->formatSlaRankingRow($label, $row);
+      }
+
+      return [
+         'columns' => ['Técnico', 'Total', 'Cumpridos', 'Violados', 'Sem meta', '% cumprimento'],
+         'rows'    => $rows,
+      ];
+   }
+
+   public function slaComplianceByCategory(DashboardContext $context, int $limit = 10): array
+   {
+      $table = Ticket::getTable();
+      $category_table = 'glpi_itilcategories';
+      $where = $this->getBaseWhere($context);
+
+      $solved_statuses = $this->getSolvedClosedStatusSql();
+      $complied_sql = "$table.time_to_resolve IS NOT NULL
+         AND $table.solvedate IS NOT NULL
+         AND $table.solvedate <= $table.time_to_resolve
+         AND $table.status IN ($solved_statuses)";
+      $violated_sql = "$table.time_to_resolve IS NOT NULL
+         AND (
+            ($table.solvedate IS NOT NULL AND $table.solvedate > $table.time_to_resolve)
+            OR ($table.solvedate IS NULL AND $table.status NOT IN ($solved_statuses) AND $table.time_to_resolve < NOW())
+         )";
+
+      $criteria = $this->withTicketProfileCriteria([
+         'SELECT' => [
+            "$category_table.completename AS category_name",
+            'COUNT DISTINCT' => "$table.id AS total",
+            new QueryExpression("COUNT(DISTINCT CASE WHEN $complied_sql THEN $table.id END) AS complied"),
+            new QueryExpression("COUNT(DISTINCT CASE WHEN $violated_sql THEN $table.id END) AS violated"),
+            new QueryExpression("COUNT(DISTINCT CASE WHEN $table.time_to_resolve IS NULL THEN $table.id END) AS without_target"),
+         ],
+         'FROM' => $table,
+         'LEFT JOIN' => [
+            $category_table => [
+               'ON' => [
+                  $category_table => 'id',
+                  $table          => 'itilcategories_id',
+               ],
+            ],
+         ],
+         'WHERE'   => $where,
+         'GROUPBY' => ["$table.itilcategories_id", "$category_table.completename"],
+         'ORDER'   => ['violated DESC', 'total DESC'],
+         'LIMIT'   => $limit,
+      ], $context);
+
+      $rows = [];
+      foreach ($this->getReadDB()->request($criteria) as $row) {
+         $rows[] = $this->formatSlaRankingRow(
+            (string) ($row['category_name'] ?: __('Sem categoria', 'dashboardplus')),
+            $row
+         );
+      }
+
+      return [
+         'columns' => ['Categoria', 'Total', 'Cumpridos', 'Violados', 'Sem meta', '% cumprimento'],
+         'rows'    => $rows,
+      ];
+   }
+
    public function resolutionRatio(DashboardContext $context): array
    {
       $table = Ticket::getTable();
@@ -1257,6 +1659,16 @@ class TicketMetricsProvider
 
    private function getBaseWhere(DashboardContext $context, string $date_field = self::DATE_OPEN): array
    {
+      return $this->getBaseWhereForPeriod($context, $date_field, $context->getStart(), $context->getEnd());
+   }
+
+   private function getBaseWhereForPeriod(
+      DashboardContext $context,
+      string $date_field,
+      string $start,
+      string $end
+   ): array
+   {
       $table = Ticket::getTable();
       $date_field = in_array($date_field, [self::DATE_OPEN, self::DATE_SOLVED, self::DATE_CLOSED], true)
          ? $date_field
@@ -1264,8 +1676,8 @@ class TicketMetricsProvider
       $where = [
          "$table.is_deleted" => 0,
       ];
-      $where[] = ["$table.$date_field" => ['>=', $context->getStartDateTime()]];
-      $where[] = ["$table.$date_field" => ['<=', $context->getEndDateTime()]];
+      $where[] = ["$table.$date_field" => ['>=', $start . ' 00:00:00']];
+      $where[] = ["$table.$date_field" => ['<=', $end . ' 23:59:59']];
       if ($context->getItilcategoriesId() !== null) {
          $where["$table.itilcategories_id"] = $context->getItilcategoriesId();
       }
@@ -1277,6 +1689,90 @@ class TicketMetricsProvider
       }
 
       return array_merge($where, $context->getEntityCriteria($table));
+   }
+
+   private function dailyTicketCounts(DashboardContext $context, string $date_field, int $limit): array
+   {
+      $counts = $this->dailyCounts($context, $date_field, $limit);
+      $range = $this->getLimitedDateRange($context, $limit);
+      $rows = [];
+
+      foreach ($this->getDayBuckets($range['start'], $range['end']) as $bucket) {
+         $rows[] = [
+            'label'  => $bucket['label'],
+            'number' => (int) ($counts[$bucket['key']] ?? 0),
+            'url'    => $this->ticketSearchUrlForPeriod($context, $bucket['key'], $bucket['key'], [], '', [], $date_field),
+            'color'  => '#2563eb',
+         ];
+      }
+
+      return $this->wrapRows($rows);
+   }
+
+   private function dailyCounts(
+      DashboardContext $context,
+      string $date_field,
+      int $limit,
+      bool $only_with_date = false
+   ): array
+   {
+      $table = Ticket::getTable();
+      $range = $this->getLimitedDateRange($context, $limit);
+      $where = $this->getBaseWhereForPeriod($context, $date_field, $range['start'], $range['end']);
+      if ($only_with_date) {
+         $where[] = new QueryExpression("$table.$date_field IS NOT NULL");
+      }
+
+      $criteria = $this->withTicketProfileCriteria([
+         'SELECT' => [
+            new QueryExpression("DATE($table.$date_field) AS period_key"),
+            'COUNT DISTINCT' => "$table.id AS total",
+         ],
+         'FROM'    => $table,
+         'WHERE'   => $where,
+         'GROUPBY' => [new QueryExpression("DATE($table.$date_field)")],
+         'ORDER'   => [new QueryExpression('period_key ASC')],
+      ], $context);
+
+      $counts = [];
+      foreach ($this->getReadDB()->request($criteria) as $row) {
+         $counts[(string) $row['period_key']] = (int) $row['total'];
+      }
+
+      return $counts;
+   }
+
+   private function getLimitedDateRange(DashboardContext $context, int $limit): array
+   {
+      $limit = max(1, min(120, $limit));
+      $start = new \DateTimeImmutable($context->getStart());
+      $end = new \DateTimeImmutable($context->getEnd());
+      $min_start = $end->modify('-' . ($limit - 1) . ' days');
+      if ($start < $min_start) {
+         $start = $min_start;
+      }
+
+      return [
+         'start' => $start->format('Y-m-d'),
+         'end'   => $end->format('Y-m-d'),
+      ];
+   }
+
+   private function getDayBuckets(string $start, string $end): array
+   {
+      $cursor = new \DateTimeImmutable($start);
+      $last = new \DateTimeImmutable($end);
+      $buckets = [];
+
+      while ($cursor <= $last) {
+         $buckets[] = [
+            'key'   => $cursor->format('Y-m-d'),
+            'label' => $cursor->format('d/m'),
+         ];
+         $cursor = $cursor->modify('+1 day');
+      }
+
+      return $buckets;
    }
 
    private function withTicketProfileCriteria(
@@ -1349,15 +1845,43 @@ class TicketMetricsProvider
       ];
    }
 
+   private function getSolvedClosedStatusSql(): string
+   {
+      return implode(',', array_map('intval', array_merge(
+         Ticket::getSolvedStatusArray(),
+         Ticket::getClosedStatusArray()
+      )));
+   }
+
+   private function formatSlaRankingRow(string $label, array $row): array
+   {
+      $total = (int) ($row['total'] ?? 0);
+      $complied = (int) ($row['complied'] ?? 0);
+      $violated = (int) ($row['violated'] ?? 0);
+      $without_target = (int) ($row['without_target'] ?? 0);
+      $with_target = max(0, $complied + $violated);
+      $rate = $with_target > 0 ? round(($complied / $with_target) * 100, 2) : 0;
+
+      return [
+         array_key_exists('category_name', $row) ? 'Categoria' : 'Técnico' => $label,
+         'Total'          => number_format($total, 0, ',', '.'),
+         'Cumpridos'      => number_format($complied, 0, ',', '.'),
+         'Violados'       => number_format($violated, 0, ',', '.'),
+         'Sem meta'       => number_format($without_target, 0, ',', '.'),
+         '% cumprimento'  => number_format($rate, 2, ',', '.') . '%',
+      ];
+   }
+
    private function getSatisfactionTotals(DashboardContext $context): array
    {
       $table = Ticket::getTable();
       $satisfaction_table = 'glpi_ticketsatisfactions';
+      $date_condition = $this->getSatisfactionDateCondition($context, $satisfaction_table);
 
       $criteria = $this->withTicketProfileCriteria([
          'SELECT' => [
             'COUNT DISTINCT' => "$table.id AS total",
-            new QueryExpression("COUNT(DISTINCT CASE WHEN $satisfaction_table.satisfaction > 0 THEN $table.id END) AS answered"),
+            new QueryExpression("COUNT(DISTINCT CASE WHEN $satisfaction_table.satisfaction > 0 AND $date_condition THEN $table.id END) AS answered"),
          ],
          'FROM' => $table,
          'LEFT JOIN' => [
@@ -1374,6 +1898,23 @@ class TicketMetricsProvider
       $row = $this->getReadDB()->request($criteria)->current();
 
       return is_array($row) ? $row : ['total' => 0, 'answered' => 0];
+   }
+
+   private function getAnsweredSatisfactionWhere(DashboardContext $context, string $satisfaction_table): array
+   {
+      return [
+         "$satisfaction_table.satisfaction" => ['>', 0],
+         ["$satisfaction_table.date_answered" => ['>=', $context->getSatisfactionStartDateTime()]],
+         ["$satisfaction_table.date_answered" => ['<=', $context->getSatisfactionEndDateTime()]],
+      ];
+   }
+
+   private function getSatisfactionDateCondition(DashboardContext $context, string $satisfaction_table): string
+   {
+      $start = addslashes($context->getSatisfactionStartDateTime());
+      $end = addslashes($context->getSatisfactionEndDateTime());
+
+      return "$satisfaction_table.date_answered >= '$start' AND $satisfaction_table.date_answered <= '$end'";
    }
 
    private function getSatisfactionLabels(bool $include_unanswered): array
@@ -1440,10 +1981,37 @@ class TicketMetricsProvider
       return '#626976';
    }
 
+   private function getPriorityColor(int $priority): string
+   {
+      switch ($priority) {
+         case 6:
+            return '#be123c';
+
+         case 5:
+            return '#dc2626';
+
+         case 4:
+            return '#d97706';
+
+         case 3:
+            return '#facc15';
+
+         case 2:
+            return '#16a34a';
+      }
+
+      return '#2563eb';
+   }
+
    private function getMonthBuckets(DashboardContext $context): array
    {
-      $start = new \DateTimeImmutable($context->getStart());
-      $end = new \DateTimeImmutable($context->getEnd());
+      return $this->getMonthBucketsForRange($context->getStart(), $context->getEnd());
+   }
+
+   private function getMonthBucketsForRange(string $start_date, string $end_date): array
+   {
+      $start = new \DateTimeImmutable($start_date);
+      $end = new \DateTimeImmutable($end_date);
       $cursor = $start->modify('first day of this month');
       $last = $end->modify('first day of this month');
       $buckets = [];
@@ -1452,11 +2020,11 @@ class TicketMetricsProvider
          $month_start = $cursor->format('Y-m-01');
          $month_end = $cursor->modify('last day of this month')->format('Y-m-d');
 
-         if ($month_start < $context->getStart()) {
-            $month_start = $context->getStart();
+         if ($month_start < $start_date) {
+            $month_start = $start_date;
          }
-         if ($month_end > $context->getEnd()) {
-            $month_end = $context->getEnd();
+         if ($month_end > $end_date) {
+            $month_end = $end_date;
          }
 
          $buckets[] = [
@@ -1653,5 +2221,15 @@ class TicketMetricsProvider
 
       global $DB;
       return $DB;
+   }
+
+   private function fieldExists(string $table, string $field): bool
+   {
+      global $DB;
+      if (method_exists($DB, 'fieldExists')) {
+         return (bool) $DB->fieldExists($table, $field);
+      }
+
+      return true;
    }
 }

@@ -75,6 +75,7 @@
          .then(function(payload) {
             card.classList.remove('dashboardplus-loading');
             card.innerHTML = payload && payload.html ? payload.html : '';
+            card.classList.toggle('dashboardplus-card-empty', !!card.querySelector('.dashboardplus-empty'));
          })
          .catch(function() {
             card.classList.remove('dashboardplus-loading');
@@ -165,5 +166,22 @@
       if (page) {
          bootDashboard(page);
       }
+
+      Array.prototype.slice.call(document.querySelectorAll('[data-dashboardplus-color-picker]')).forEach(function(picker) {
+         var text = picker.parentNode ? picker.parentNode.querySelector('input[type="text"]') : null;
+         if (!text) {
+            return;
+         }
+
+         picker.addEventListener('input', function() {
+            text.value = picker.value;
+         });
+
+         text.addEventListener('input', function() {
+            if (/^#[0-9a-fA-F]{6}$/.test(text.value)) {
+               picker.value = text.value;
+            }
+         });
+      });
    });
 })();

@@ -18,6 +18,12 @@ Os arquivos foram tratados como referência funcional, não como instruções op
 
 Indicadores equivalentes implementados ou já existentes:
 
+- Tickets recebidos por dia.
+- Tickets solucionados / encerrados por dia.
+- Nº de tickets em aberto por dia nos últimos 30 dias.
+- Cards de atendimento: novos, não atribuídos, planejados, fila de notificações, solucionados, pendentes, encerrados, abertos, atribuídos e solucionados hoje.
+- Cards de prioridade média, alta e crítica.
+- Tickets por localização.
 - Chamados por status.
 - Incidentes x requisições.
 - Chamados por prioridade.
@@ -55,7 +61,7 @@ Indicadores equivalentes implementados:
 - Média de satisfação por mês.
 - Chamados reabertos.
 
-Limitação atual: o Dashboard Plus usa o período global baseado na data de abertura do chamado. O modelo visual de referência separa "Data Abertura" e "Data Pesquisa"; essa separação deve ser avaliada em corte futuro para não aumentar a complexidade dos filtros globais antes de validar a experiência.
+O Dashboard Plus separa o período global de abertura do chamado do período da pesquisa de satisfação. Assim, "Data Abertura" define o universo de chamados analisado e "Data Pesquisa" define quais respostas entram em médias, comentários, respondidas e gráficos mensais.
 
 ### Tarefas
 
@@ -72,9 +78,11 @@ Indicadores equivalentes implementados:
 - Total de impressoras.
 - Total de telefones.
 - Computadores por fabricante.
+- Monitor por fabricante.
 - Computadores por tipo.
 - Computadores por localização.
 - Computadores por sistema operacional.
+- Dispositivos por CPU.
 - Ativos por cidade no estado de São Paulo, com marcadores proporcionais no mapa.
 
 O mapa de São Paulo usa `glpi_locations.town`, `glpi_locations.state`, `glpi_locations.latitude` e `glpi_locations.longitude`. Quando latitude/longitude não estão cadastradas, o provider tenta resolver coordenadas de cidades paulistas comuns por tabela interna simples. Cidades sem coordenada ficam listadas como não mapeadas, sem quebrar o widget.
@@ -83,7 +91,7 @@ Limitações atuais:
 
 - O mapa considera computadores localizados no estado de São Paulo; outros tipos de ativo podem ser incorporados depois se o modelo operacional exigir.
 - A VM pode exibir estado vazio se os ativos de teste não tiverem cidade/UF/latitude/longitude em `glpi_locations`.
-- CPU, GPU e Microsoft 365 ainda não foram implementados porque dependem de relacionamento mais específico de inventário/software/licenciamento em cada ambiente GLPI.
+- Modelo ainda não foi implementado porque depende de relacionamento mais específico de inventário em cada ambiente GLPI.
 
 ## Decisões de implementação
 
@@ -97,5 +105,5 @@ Limitações atuais:
 ## Pendência recomendada
 
 - Popular a VM com localizações e ativos de teste em cidades de São Paulo.
-- Avaliar inclusão de CPU, GPU, modelo e Microsoft 365 após confirmar quais campos/tabelas estão preenchidos na produção.
+- Avaliar inclusão de modelo após confirmar quais campos/tabelas estão preenchidos na produção.
 - Avaliar uso de GeoJSON oficial do estado de São Paulo em uma versão futura se for necessário desenho cartográfico mais preciso.

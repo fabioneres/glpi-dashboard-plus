@@ -7,6 +7,7 @@
 
 use GlpiPlugin\Dashboardplus\Cache\DashboardCache;
 use GlpiPlugin\Dashboardplus\Config;
+use GlpiPlugin\Dashboardplus\Dashboard;
 use GlpiPlugin\Dashboardplus\DashboardContext;
 use GlpiPlugin\Dashboardplus\Logger;
 use GlpiPlugin\Dashboardplus\Widget\WidgetRegistry;
@@ -29,6 +30,17 @@ if (!Config::canView()) {
 }
 
 $key = preg_replace('/[^a-z0-9_]/', '', (string) ($_GET['widget'] ?? ''));
+$context = DashboardContext::fromRequest($_GET, Config::getSettings());
+
+if (!Config::canUseDashboardInEntity($context->getEntitiesId(), $context->isRecursive())) {
+   http_response_code(403);
+   echo json_encode([
+      'ok'   => false,
+      'html' => WidgetRenderer::renderError(__('Dashboard Plus indisponível para esta entidade', 'dashboardplus')),
+   ]);
+   exit;
+}
+
 $widget = WidgetRegistry::get($key);
 
 if (!$widget || !$widget->canView()) {
@@ -36,6 +48,16 @@ if (!$widget || !$widget->canView()) {
    echo json_encode([
       'ok'   => false,
       'html' => WidgetRenderer::renderError(__('Widget indisponível', 'dashboardplus')),
+   ]);
+   exit;
+}
+
+$dashboard_key = Dashboard::getWidgetDashboardKey($key);
+if (!Config::canUseDashboardTabInEntity($dashboard_key, $context->getEntitiesId(), $context->isRecursive())) {
+   http_response_code(403);
+   echo json_encode([
+      'ok'   => false,
+      'html' => WidgetRenderer::renderError(__('Acesso negado a esta aba', 'dashboardplus')),
    ]);
    exit;
 }
@@ -49,8 +71,6 @@ if ((int) ($config['is_enabled'] ?? 0) !== 1) {
    ]);
    exit;
 }
-
-$context = DashboardContext::fromRequest($_GET, Config::getSettings());
 
 try {
    $data = DashboardCache::get($key, $context);

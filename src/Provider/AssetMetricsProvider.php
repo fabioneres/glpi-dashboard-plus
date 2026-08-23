@@ -93,6 +93,18 @@ class AssetMetricsProvider
       );
    }
 
+   public function monitorsByManufacturer(DashboardContext $context, int $limit = 10): array
+   {
+      return $this->breakdownByDropdown(
+         Monitor::getTable(),
+         'glpi_manufacturers',
+         'manufacturers_id',
+         $context,
+         __('Sem fabricante', 'dashboardplus'),
+         $limit
+      );
+   }
+
    public function computersByType(DashboardContext $context, int $limit = 10): array
    {
       return $this->breakdownByDropdown(
@@ -157,6 +169,56 @@ class AssetMetricsProvider
       ];
 
       return $this->rowsFromCriteria($criteria, __('Sem sistema operacional', 'dashboardplus'));
+   }
+
+   public function computersByProcessor(DashboardContext $context, int $limit = 10): array
+   {
+      $table = Computer::getTable();
+      $items_processor_table = 'glpi_items_deviceprocessors';
+      $processor_table = 'glpi_deviceprocessors';
+
+      if (!$this->tableExists($items_processor_table) || !$this->tableExists($processor_table)) {
+         return $this->wrapRows([]);
+      }
+
+      $processor_field = $this->hasColumn($processor_table, 'designation') ? 'designation' : 'name';
+      $items_where = [
+         "$items_processor_table.itemtype" => 'Computer',
+      ];
+      if ($this->hasColumn($items_processor_table, 'is_deleted')) {
+         $items_where["$items_processor_table.is_deleted"] = 0;
+      }
+
+      $criteria = [
+         'SELECT' => [
+            "$processor_table.$processor_field AS label",
+            'COUNT DISTINCT' => "$table.id AS total",
+         ],
+         'FROM' => $table,
+         'INNER JOIN' => [
+            $items_processor_table => [
+               'ON' => [
+                  $items_processor_table => 'items_id',
+                  $table                 => 'id',
+                  [
+                     'AND' => $items_where,
+                  ],
+               ],
+            ],
+            $processor_table => [
+               'ON' => [
+                  $processor_table       => 'id',
+                  $items_processor_table => 'deviceprocessors_id',
+               ],
+            ],
+         ],
+         'WHERE'   => $this->getAssetBaseWhere($table, $context),
+         'GROUPBY' => ["$processor_table.id", "$processor_table.$processor_field"],
+         'ORDER'   => ['total DESC'],
+         'LIMIT'   => $limit,
+      ];
+
+      return $this->rowsFromCriteria($criteria, __('Sem processador', 'dashboardplus'));
    }
 
    public function computersBySaoPauloCity(DashboardContext $context, int $limit = 30): array
@@ -291,6 +353,11 @@ class AssetMetricsProvider
          ];
       }
 
+      return $this->wrapRows($rows);
+   }
+
+   private function wrapRows(array $rows): array
+   {
       return [
          'rows'  => $rows,
          'total' => array_sum(array_map(static function(array $row): int {
@@ -345,6 +412,16 @@ class AssetMetricsProvider
 
       $cache[$key] = (bool) $row;
       return $cache[$key];
+   }
+
+   private function tableExists(string $table): bool
+   {
+      $db = $this->getReadDB();
+      if (method_exists($db, 'tableExists')) {
+         return (bool) $db->tableExists($table);
+      }
+
+      return true;
    }
 
    private function getReadDB()

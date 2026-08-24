@@ -2,7 +2,7 @@
 
 ## Instalação e ciclo de vida
 
-- Instalar o plugin no GLPI 10.0.25 e confirmar a criação de todas as tabelas `glpi_plugin_dashboardplus_*`.
+- Instalar o plugin no GLPI 10.0.24+ e confirmar a criação de todas as tabelas `glpi_plugin_dashboardplus_*`.
 - Ativar e desativar o plugin sem avisos de PHP.
 - Desinstalar o plugin e confirmar a remoção das tabelas e dos direitos de perfil.
 - Reinstalar após a desinstalação para validar instalação idempotente.

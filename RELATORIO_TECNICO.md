@@ -13,7 +13,7 @@ Referencia funcional citada pelo usuario: plugin Dashboard do Stevenes Donato. A
 - Caminho local atual do plugin: `C:\Projetos\glpi\plugins\meusplugins\dashboardplus`
 - Caminho do GLPI na VM: `/var/www/html/glpi`
 - Host da VM usado nos testes: `192.168.159.129`
-- Versao GLPI validada: `10.0.25`
+- Compatibilidade GLPI declarada: `10.0.24+`
 - Versao atual do plugin: `1.0.0`
 
 Observacao de seguranca: credenciais de acesso SSH/GLPI foram usadas durante os testes, mas nao foram registradas neste relatorio.

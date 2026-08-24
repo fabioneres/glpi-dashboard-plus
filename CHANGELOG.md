@@ -2,6 +2,7 @@
 
 ## 1.1.0
 
+- Compatibilidade mínima ajustada para GLPI 10.0.24.
 - Configuração de largura e altura por widget usando os campos existentes de configuração.
 - Aplicação automática do layout recomendado 1.1.0 para organizar o tamanho ideal por tipo de gráfico.
 - Novos indicadores de SLA por técnico e por categoria.

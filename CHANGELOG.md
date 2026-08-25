@@ -1,5 +1,14 @@
 # Histórico de alterações
 
+## 1.2.0
+
+- Nova seção Sobre no Dashboard Plus, acessível pelo painel e pela tela de configuração.
+- Explicações dos indicadores organizadas por abas internas: Visão Geral, Atendimento, SLA, Satisfação, Tarefas, Ativos, Distribuições e Capacidade.
+- Cards visuais com ícones, descrições curtas, fórmulas e alertas para reduzir carga textual.
+- Navegação da seção Sobre por links reais com parâmetro `tab`, funcionando mesmo quando o JavaScript ou o cache de assets ainda não estiver atualizado.
+- Estilos essenciais da seção Sobre protegidos contra cache agressivo de CSS do GLPI.
+- Explicação formal dos níveis de carga operacional e do cuidado para não interpretar carga como produtividade individual.
+
 ## 1.1.0
 
 - Compatibilidade mínima ajustada para GLPI 10.0.24.

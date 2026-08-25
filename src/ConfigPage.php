@@ -55,9 +55,14 @@ class ConfigPage
 
       echo "<div class='dashboardplus-config-header'>";
       echo "<h1><i class='" . Config::getIcon() . "'></i> " . __('Configurações do Dashboard Plus', 'dashboardplus') . "</h1>";
+      echo "<div class='dashboardplus-header-actions'>";
       echo "<a class='btn btn-outline-secondary' href='" . Config::pluginUrl('/front/dashboard.php') . "'>";
       echo "<i class='ti ti-arrow-left'></i> " . __('Voltar ao painel', 'dashboardplus');
       echo "</a>";
+      echo "<a class='btn btn-outline-secondary' href='" . Config::pluginUrl('/front/about.php') . "'>";
+      echo "<i class='ti ti-info-circle'></i> " . __('Sobre', 'dashboardplus');
+      echo "</a>";
+      echo "</div>";
       echo "</div>";
 
       echo "<section class='dashboardplus-config-section'>";

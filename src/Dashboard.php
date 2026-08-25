@@ -476,6 +476,10 @@ class Dashboard extends CommonDBTM
          'icon'  => 'ti ti-filter',
       ]);
 
+      echo "<a class='btn btn-outline-secondary' href='" . Config::pluginUrl('/front/about.php') . "'>";
+      echo "<i class='ti ti-info-circle'></i> " . __('Sobre', 'dashboardplus');
+      echo "</a>";
+
       if (Config::canAdmin()) {
          echo "<a class='btn btn-outline-secondary' href='" . Config::pluginUrl('/front/config.form.php') . "'>";
          echo "<i class='ti ti-settings'></i> " . __('Configurações', 'dashboardplus');

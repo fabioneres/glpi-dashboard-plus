@@ -127,19 +127,8 @@
 
       loadVisibleWidgets(page);
 
-      Array.prototype.slice.call(page.querySelectorAll('[data-dashboardplus-tab]')).forEach(function(tab) {
-         tab.addEventListener('click', function() {
-            var key = tab.dataset.dashboardplusTab;
-            Array.prototype.slice.call(page.querySelectorAll('[data-dashboardplus-tab]')).forEach(function(item) {
-               var active = item === tab;
-               item.classList.toggle('active', active);
-               item.setAttribute('aria-selected', active ? 'true' : 'false');
-            });
-            Array.prototype.slice.call(page.querySelectorAll('[data-dashboardplus-panel]')).forEach(function(panel) {
-               panel.classList.toggle('active', panel.dataset.dashboardplusPanel === key);
-            });
-            loadVisibleWidgets(page);
-         });
+      bootTabs(page, function() {
+         loadVisibleWidgets(page);
       });
 
       var advancedToggle = page.querySelector('.dashboardplus-advanced-toggle');
@@ -161,11 +150,34 @@
       }
    }
 
+   function bootTabs(container, afterChange) {
+      Array.prototype.slice.call(container.querySelectorAll('[data-dashboardplus-tab]')).forEach(function(tab) {
+         tab.addEventListener('click', function() {
+            var key = tab.dataset.dashboardplusTab;
+            Array.prototype.slice.call(container.querySelectorAll('[data-dashboardplus-tab]')).forEach(function(item) {
+               var active = item === tab;
+               item.classList.toggle('active', active);
+               item.setAttribute('aria-selected', active ? 'true' : 'false');
+            });
+            Array.prototype.slice.call(container.querySelectorAll('[data-dashboardplus-panel]')).forEach(function(panel) {
+               panel.classList.toggle('active', panel.dataset.dashboardplusPanel === key);
+            });
+            if (typeof afterChange === 'function') {
+               afterChange();
+            }
+         });
+      });
+   }
+
    document.addEventListener('DOMContentLoaded', function() {
       var page = document.querySelector('.dashboardplus-page');
       if (page) {
          bootDashboard(page);
       }
+
+      Array.prototype.slice.call(document.querySelectorAll('.dashboardplus-about')).forEach(function(about) {
+         bootTabs(about);
+      });
 
       Array.prototype.slice.call(document.querySelectorAll('[data-dashboardplus-color-picker]')).forEach(function(picker) {
          var text = picker.parentNode ? picker.parentNode.querySelector('input[type="text"]') : null;

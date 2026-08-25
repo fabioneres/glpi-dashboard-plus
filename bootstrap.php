@@ -10,7 +10,7 @@ if (!defined('GLPI_ROOT')) {
 }
 
 if (!defined('PLUGIN_DASHBOARDPLUS_VERSION')) {
-   define('PLUGIN_DASHBOARDPLUS_VERSION', '1.1.0');
+   define('PLUGIN_DASHBOARDPLUS_VERSION', '1.2.0');
 }
 
 if (!defined('PLUGIN_DASHBOARDPLUS_SCHEMA_VERSION')) {

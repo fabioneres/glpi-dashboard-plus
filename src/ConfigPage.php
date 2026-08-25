@@ -81,10 +81,22 @@ class ConfigPage
       echo "</section>";
 
       echo "<section class='dashboardplus-config-section'>";
-      echo "<h2>" . __('Escopo de entidades', 'dashboardplus') . "</h2>";
+      echo "<h2>" . __('Entidades e abas', 'dashboardplus') . "</h2>";
+      echo "<p class='dashboardplus-config-help'>" . __('Defina onde o Dashboard Plus fica disponível e quais abas aparecem por entidade. O filtro de entidade do painel apenas recorta os dados exibidos.', 'dashboardplus') . "</p>";
+      echo "<div class='dashboardplus-settings-grid'>";
+      self::switchField('entity_default_enabled', __('Habilitar por padrão quando não houver regra específica', 'dashboardplus'), (int) $settings['entity_default_enabled']);
+      echo "<label class='dashboardplus-full-field'>";
+      echo "<span>" . __('Abas habilitadas por padrão', 'dashboardplus') . "</span>";
+      self::tabsCheckboxes('default_enabled_tabs', $settings['default_enabled_tabs'] ?? Config::getDashboardKeys());
+      echo "</label>";
+      echo "</div>";
+
+      echo "<details class='dashboardplus-advanced-scope'>";
+      echo "<summary><i class='ti ti-adjustments-horizontal'></i> " . __('Escopo avançado dos dados', 'dashboardplus') . "</summary>";
+      echo "<p>" . __('Use somente se quiser limitar o dashboard a um conjunto fixo de entidades quando nenhum filtro estiver selecionado. Em geral, deixe vazio para usar a entidade ativa e as entidades visíveis do usuário.', 'dashboardplus') . "</p>";
       echo "<div class='dashboardplus-entity-scope'>";
       echo "<label>";
-      echo "<span>" . __('Entidades consideradas', 'dashboardplus') . "</span>";
+      echo "<span>" . __('Entidades consideradas quando nenhum filtro for aplicado', 'dashboardplus') . "</span>";
       if ($available_entities !== []) {
          Dropdown::showFromArray('dashboardplus_entities_id', $available_entities, [
             'values'               => $entity_ids,
@@ -97,23 +109,13 @@ class ConfigPage
       }
       echo "</label>";
       echo "<label class='dashboardplus-inline-switch dashboardplus-entity-recursive'>";
-      echo "<span>" . __('Incluir entidades filhas', 'dashboardplus') . "</span>";
+      echo "<span>" . __('Incluir entidades filhas neste escopo', 'dashboardplus') . "</span>";
       echo "<input type='hidden' name='dashboardplus_entities_recursive' value='0'>";
       echo "<input type='checkbox' name='dashboardplus_entities_recursive' value='1'" . ($entities_recursive ? ' checked' : '') . ">";
       echo "</label>";
-      echo "<small>" . __('Deixe em branco para usar as entidades visíveis para cada usuário.', 'dashboardplus') . "</small>";
+      echo "<small>" . __('Esta opção não habilita nem desabilita abas. A disponibilidade fica nas regras de entidade abaixo.', 'dashboardplus') . "</small>";
       echo "</div>";
-      echo "</section>";
-
-      echo "<section class='dashboardplus-config-section'>";
-      echo "<h2>" . __('Disponibilidade por entidade', 'dashboardplus') . "</h2>";
-      echo "<div class='dashboardplus-settings-grid'>";
-      self::switchField('entity_default_enabled', __('Habilitar por padrão quando não houver regra específica', 'dashboardplus'), (int) $settings['entity_default_enabled']);
-      echo "<label class='dashboardplus-full-field'>";
-      echo "<span>" . __('Abas habilitadas por padrão', 'dashboardplus') . "</span>";
-      self::tabsCheckboxes('default_enabled_tabs', $settings['default_enabled_tabs'] ?? Config::getDashboardKeys());
-      echo "</label>";
-      echo "</div>";
+      echo "</details>";
 
       echo "<div class='dashboardplus-widget-config-list'>";
       foreach ($entity_configs as $row) {
@@ -142,7 +144,8 @@ class ConfigPage
       echo "</div>";
 
       echo "<div class='dashboardplus-entity-scope mt-3'>";
-      echo "<h3>" . __('Adicionar ou atualizar entidade', 'dashboardplus') . "</h3>";
+      echo "<h3>" . __('Nova regra de entidade', 'dashboardplus') . "</h3>";
+      echo "<small>" . __('Cria ou atualiza a regra explícita de disponibilidade da entidade selecionada.', 'dashboardplus') . "</small>";
       echo "<label>";
       echo "<span>" . __('Entidade', 'dashboardplus') . "</span>";
       Dropdown::showFromArray('new_entity_config[entities_id]', $available_entities, [

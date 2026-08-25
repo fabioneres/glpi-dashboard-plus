@@ -1,5 +1,15 @@
 # Histórico de alterações
 
+## 1.2.2
+
+- Hotfix dos filtros de entidade no dashboard e nos widgets AJAX.
+- Corrige cenário em que selecionar entidade com recursividade gerava critério `glpi_tickets.is_recursive`, campo inexistente em chamados.
+- O filtro recursivo agora expande a entidade selecionada para entidade + filhas acessíveis e aplica `entities_id IN (...)`.
+- Corrige indicadores zerados ao selecionar entidade, especialmente em Atendimento, SLA e widgets baseados em chamados.
+- O filtro de entidade da tela inicial agora usa a entidade ativa do usuário como padrão e carrega a lista pelo backend, sem depender do dropdown AJAX nativo.
+- Reorganiza a configuração de entidades para diferenciar disponibilidade por entidade, abas habilitadas e escopo avançado dos dados.
+- O antigo escopo de entidades fica como opção avançada opcional, preservando compatibilidade com configurações já existentes.
+
 ## 1.2.1
 
 - Hotfix da tela de configuração para carregar a lista de entidades sem depender do dropdown AJAX nativo do GLPI.

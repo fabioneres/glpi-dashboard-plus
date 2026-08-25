@@ -1222,10 +1222,36 @@
    font-weight: 650;
 }
 
+.dashboardplus-config-help {
+   margin: -6px 0 14px;
+   color: var(--dp-muted);
+   font-size: 13px;
+}
+
 .dashboardplus-settings-grid {
    display: grid;
    grid-template-columns: repeat(3, minmax(160px, 1fr));
    gap: 14px;
+}
+
+.dashboardplus-advanced-scope {
+   margin: 14px 0;
+   padding: 12px 14px;
+   border: 1px dashed var(--dp-border);
+   border-radius: 8px;
+   background: var(--dp-soft);
+}
+
+.dashboardplus-advanced-scope summary {
+   cursor: pointer;
+   color: var(--dp-text);
+   font-weight: 650;
+}
+
+.dashboardplus-advanced-scope p {
+   margin: 10px 0 12px;
+   color: var(--dp-muted);
+   font-size: 13px;
 }
 
 .dashboardplus-entity-scope {

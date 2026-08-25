@@ -93,14 +93,16 @@ class DashboardContext
       }
 
       $configured_entities = Config::getConfiguredEntityRows();
-      $configured_ids = array_map(static function(array $row): int {
-         return (int) $row['entities_id'];
-      }, $configured_entities);
-
       $entities_id = null;
       if (isset($request['entities_id']) && $request['entities_id'] !== '') {
          $candidate = (int) $request['entities_id'];
-         $allowed_by_config = !count($configured_ids) || in_array($candidate, $configured_ids, true);
+         $allowed_by_config = self::isEntityAllowedByConfiguredScope($candidate, $configured_entities);
+         if ($candidate >= 0 && $allowed_by_config && Session::haveAccessToEntity($candidate, true)) {
+            $entities_id = $candidate;
+         }
+      } elseif (!isset($request['entities_id'])) {
+         $candidate = (int) ($_SESSION['glpiactive_entity'] ?? 0);
+         $allowed_by_config = self::isEntityAllowedByConfiguredScope($candidate, $configured_entities);
          if ($candidate >= 0 && $allowed_by_config && Session::haveAccessToEntity($candidate, true)) {
             $entities_id = $candidate;
          }
@@ -239,28 +241,55 @@ class DashboardContext
    public function getEntityCriteria(string $table = 'glpi_tickets', string $field = 'entities_id'): array
    {
       if ($this->entities_id !== null) {
-         return getEntitiesRestrictCriteria($table, $field, $this->entities_id, $this->is_recursive);
+         return $this->buildEntityCriteria($table, $field, $this->expandEntityIds($this->entities_id, $this->is_recursive));
       }
 
       if (count($this->configured_entities)) {
-         $or = [];
+         $ids = [];
          foreach ($this->configured_entities as $row) {
             $entities_id = (int) $row['entities_id'];
             $recursive = (int) ($row['is_recursive'] ?? 1) === 1;
             if (!Session::haveAccessToEntity($entities_id, $recursive)) {
                continue;
             }
-            $or[] = getEntitiesRestrictCriteria($table, $field, $entities_id, $recursive);
+            $ids = array_merge($ids, $this->expandEntityIds($entities_id, $recursive));
          }
 
-         if (!count($or)) {
+         if (!count($ids)) {
             return ["$table.id" => 0];
          }
 
-         return [['OR' => $or]];
+         return $this->buildEntityCriteria($table, $field, $ids);
       }
 
       return getEntitiesRestrictCriteria($table);
+   }
+
+   private function buildEntityCriteria(string $table, string $field, array $entities): array
+   {
+      $entities = array_values(array_unique(array_filter(array_map('intval', $entities), static function(int $id): bool {
+         return $id >= 0;
+      })));
+
+      if (!count($entities)) {
+         return ["$table.id" => 0];
+      }
+
+      $column = $table !== '' ? "$table.$field" : $field;
+      return [$column => count($entities) === 1 ? reset($entities) : $entities];
+   }
+
+   private function expandEntityIds(int $entities_id, bool $recursive): array
+   {
+      $ids = [$entities_id];
+
+      if ($recursive && function_exists('getSonsOf')) {
+         $ids = array_merge($ids, array_map('intval', getSonsOf('glpi_entities', $entities_id)));
+      }
+
+      return array_values(array_unique(array_filter($ids, static function(int $id): bool {
+         return $id >= 0 && Session::haveAccessToEntity($id, false);
+      })));
    }
 
    public function toQueryParams(): array
@@ -323,6 +352,30 @@ class DashboardContext
    {
       $priority = (int) ($value ?? 0);
       return $priority >= 1 && $priority <= 6 ? $priority : null;
+   }
+
+   private static function isEntityAllowedByConfiguredScope(int $entities_id, array $configured_entities): bool
+   {
+      if (!count($configured_entities)) {
+         return true;
+      }
+
+      foreach ($configured_entities as $row) {
+         $configured_id = (int) ($row['entities_id'] ?? -1);
+         if ($configured_id === $entities_id) {
+            return true;
+         }
+
+         $recursive = (int) ($row['is_recursive'] ?? 1) === 1;
+         if ($recursive && function_exists('getSonsOf')) {
+            $children = array_map('intval', getSonsOf('glpi_entities', $configured_id));
+            if (in_array($entities_id, $children, true)) {
+               return true;
+            }
+         }
+      }
+
+      return false;
    }
 
    private static function normalizeDate(string $value, string $fallback): string

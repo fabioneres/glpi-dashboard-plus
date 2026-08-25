@@ -14,6 +14,7 @@ use GlpiPlugin\Dashboardplus\Widget\WidgetRegistry;
 use Group;
 use Html;
 use ITILCategory;
+use Session;
 use Ticket;
 use User;
 
@@ -452,8 +453,7 @@ class Dashboard extends CommonDBTM
 
       echo "<label class='dashboardplus-entity-filter'>";
       echo "<span>" . __('Entidade', 'dashboardplus') . "</span>";
-      Dropdown::show(Entity::class, [
-         'name'                => 'entities_id',
+      Dropdown::showFromArray('entities_id', self::getAvailableEntities(), [
          'value'               => $entity_value,
          'width'               => '100%',
          'display_emptychoice' => true,
@@ -555,5 +555,33 @@ class Dashboard extends CommonDBTM
       echo "</div>";
       echo "</form>";
       echo "</div>";
+   }
+
+   private static function getAvailableEntities(): array
+   {
+      global $DB;
+
+      $entities = [];
+      foreach ($DB->request([
+         'FROM'  => Entity::getTable(),
+         'ORDER' => ['completename ASC', 'name ASC'],
+      ]) as $row) {
+         $entities_id = (int) ($row['id'] ?? 0);
+         if (!Session::haveAccessToEntity($entities_id, true)) {
+            continue;
+         }
+
+         $label = (string) ($row['completename'] ?? '');
+         if ($label === '') {
+            $label = (string) ($row['name'] ?? '');
+         }
+         if ($label === '') {
+            $label = Dropdown::getDropdownName(Entity::getTable(), $entities_id);
+         }
+
+         $entities[$entities_id] = $label;
+      }
+
+      return $entities;
    }
 }

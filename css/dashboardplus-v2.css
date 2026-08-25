@@ -1254,6 +1254,142 @@
    font-size: 13px;
 }
 
+.dashboardplus-entity-default-card,
+.dashboardplus-entity-rule-card,
+.dashboardplus-entity-rule-form {
+   padding: 14px;
+   border: 1px solid var(--dp-border);
+   border-radius: 8px;
+   background: var(--dp-soft);
+}
+
+.dashboardplus-entity-default-card {
+   display: grid;
+   grid-template-columns: minmax(220px, 1fr) auto;
+   align-items: start;
+   gap: 14px;
+   margin-bottom: 14px;
+}
+
+.dashboardplus-entity-default-card strong,
+.dashboardplus-entity-rule-title strong,
+.dashboardplus-entity-rule-form-title h3 {
+   color: var(--dp-text);
+   font-size: 14px;
+   font-weight: 700;
+}
+
+.dashboardplus-entity-default-card small,
+.dashboardplus-entity-rule-title small,
+.dashboardplus-entity-rule-form-title p {
+   display: block;
+   margin: 4px 0 0;
+   color: var(--dp-muted);
+   font-size: 12px;
+}
+
+.dashboardplus-entity-default-toggle {
+   justify-content: flex-end;
+   margin-top: 1px;
+}
+
+.dashboardplus-entity-rules {
+   display: grid;
+   gap: 12px;
+   margin-top: 14px;
+}
+
+.dashboardplus-entity-rule-head {
+   display: grid;
+   grid-template-columns: minmax(0, 1fr) auto;
+   align-items: start;
+   gap: 14px;
+}
+
+.dashboardplus-entity-rule-title strong {
+   display: flex;
+   align-items: center;
+   gap: 7px;
+}
+
+.dashboardplus-entity-rule-actions,
+.dashboardplus-entity-rule-form-grid {
+   display: flex;
+   align-items: center;
+   gap: 16px;
+   flex-wrap: wrap;
+}
+
+.dashboardplus-entity-rule-actions .dashboardplus-inline-option,
+.dashboardplus-entity-default-toggle,
+.dashboardplus-entity-rule-form-grid .dashboardplus-inline-switch {
+   min-height: auto;
+   margin: 0;
+   white-space: nowrap;
+}
+
+.dashboardplus-entity-tabs-field {
+   grid-column: 1 / -1;
+   margin-top: 12px;
+   padding-top: 12px;
+   border-top: 1px solid var(--dp-border);
+}
+
+.dashboardplus-entity-tabs-field > span {
+   display: block;
+   margin-bottom: 8px;
+   color: var(--dp-muted);
+   font-size: 12px;
+   font-weight: 650;
+}
+
+.dashboardplus-entity-tabs-field .dashboardplus-tab-checkboxes {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 8px;
+}
+
+.dashboardplus-entity-tabs-field .dashboardplus-inline-option {
+   min-height: 32px;
+   margin: 0;
+   padding: 6px 10px;
+   border: 1px solid var(--dp-border);
+   border-radius: 999px;
+   background: #ffffff;
+   color: var(--dp-text);
+   font-size: 12px;
+   line-height: 1;
+}
+
+.dashboardplus-entity-rule-form {
+   margin-top: 14px;
+}
+
+.dashboardplus-entity-rule-form-title h3 {
+   margin: 0;
+}
+
+.dashboardplus-entity-rule-form-grid {
+   display: grid;
+   grid-template-columns: minmax(260px, 1fr) auto auto;
+   align-items: end;
+   gap: 14px;
+   margin-top: 12px;
+}
+
+.dashboardplus-entity-rule-form-grid > label:first-child {
+   display: flex;
+   flex-direction: column;
+   gap: 5px;
+   min-width: 0;
+}
+
+.dashboardplus-entity-rule-form-grid > label:first-child > span {
+   color: var(--dp-muted);
+   font-size: 12px;
+   font-weight: 650;
+}
+
 .dashboardplus-entity-scope {
    display: grid;
    grid-template-columns: minmax(260px, 1fr) 220px;
@@ -1439,6 +1575,9 @@
    .dashboardplus-filter-advanced,
    .dashboardplus-settings-grid,
    .dashboardplus-entity-scope,
+   .dashboardplus-entity-default-card,
+   .dashboardplus-entity-rule-head,
+   .dashboardplus-entity-rule-form-grid,
    .dashboardplus-ratio-legend {
       grid-template-columns: 1fr;
    }

@@ -1,5 +1,14 @@
 # Histórico de alterações
 
+## 1.2.3
+
+- Adiciona o indicador "Tempo médio de solução" com tempo corrido entre abertura e solução dos chamados fechados.
+- Renomeia o indicador baseado em `solve_delay_stat` para "Tempo médio útil de solução", diferenciando a métrica operacional/SLA gravada pelo GLPI.
+- Ajusta a aba Ativos para usar entidades visíveis do usuário quando nenhuma entidade é escolhida explicitamente no filtro, evitando zerar inventário em cenários multi-entidade.
+- Mantém respeito ao filtro de entidade e recursividade quando o usuário escolhe uma entidade específica.
+- Reorganiza visualmente a configuração "Entidades e abas" em cards e chips, reduzindo quebra de layout e excesso de checkboxes soltos.
+- Atualiza a seção Sobre com a explicação das duas métricas de tempo de solução.
+
 ## 1.2.2
 
 - Hotfix dos filtros de entidade no dashboard e nos widgets AJAX.

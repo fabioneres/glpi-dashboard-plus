@@ -198,6 +198,7 @@ class Dashboard extends CommonDBTM
                'sla_response_compliance',
                'sla_by_technician',
                'sla_by_category',
+               'average_elapsed_solve_time_closed',
                'average_solve_time_closed',
             ],
             'grid_class' => 'dashboardplus-grid',

@@ -25,6 +25,7 @@ class DashboardContext
    private $period_days;
    private $satisfaction_start;
    private $satisfaction_end;
+   private $entity_filter_explicit;
 
    public function __construct(
       string $start,
@@ -40,7 +41,8 @@ class DashboardContext
       array $configured_entities = [],
       int $period_days = 30,
       ?string $satisfaction_start = null,
-      ?string $satisfaction_end = null
+      ?string $satisfaction_end = null,
+      bool $entity_filter_explicit = false
    )
    {
       $this->start = $start;
@@ -57,6 +59,7 @@ class DashboardContext
       $this->period_days = $period_days;
       $this->satisfaction_start = $satisfaction_start ?: $start;
       $this->satisfaction_end = $satisfaction_end ?: $end;
+      $this->entity_filter_explicit = $entity_filter_explicit;
    }
 
    public static function fromRequest(array $request, array $settings): self
@@ -94,6 +97,7 @@ class DashboardContext
 
       $configured_entities = Config::getConfiguredEntityRows();
       $entities_id = null;
+      $entity_filter_explicit = isset($request['entities_id']) && $request['entities_id'] !== '';
       if (isset($request['entities_id']) && $request['entities_id'] !== '') {
          $candidate = (int) $request['entities_id'];
          $allowed_by_config = self::isEntityAllowedByConfiguredScope($candidate, $configured_entities);
@@ -129,7 +133,8 @@ class DashboardContext
          $configured_entities,
          $period_days,
          $satisfaction_start,
-         $satisfaction_end
+         $satisfaction_end,
+         $entity_filter_explicit
       );
    }
 
@@ -228,6 +233,11 @@ class DashboardContext
       return count($this->configured_entities) > 0;
    }
 
+   public function hasExplicitEntityFilter(): bool
+   {
+      return $this->entity_filter_explicit;
+   }
+
    public function useCache(): bool
    {
       return (int) ($this->settings['use_cache'] ?? 1) === 1;
@@ -242,6 +252,33 @@ class DashboardContext
    {
       if ($this->entities_id !== null) {
          return $this->buildEntityCriteria($table, $field, $this->expandEntityIds($this->entities_id, $this->is_recursive));
+      }
+
+      if (count($this->configured_entities)) {
+         $ids = [];
+         foreach ($this->configured_entities as $row) {
+            $entities_id = (int) $row['entities_id'];
+            $recursive = (int) ($row['is_recursive'] ?? 1) === 1;
+            if (!Session::haveAccessToEntity($entities_id, $recursive)) {
+               continue;
+            }
+            $ids = array_merge($ids, $this->expandEntityIds($entities_id, $recursive));
+         }
+
+         if (!count($ids)) {
+            return ["$table.id" => 0];
+         }
+
+         return $this->buildEntityCriteria($table, $field, $ids);
+      }
+
+      return getEntitiesRestrictCriteria($table);
+   }
+
+   public function getVisibleEntityCriteria(string $table = 'glpi_tickets', string $field = 'entities_id'): array
+   {
+      if ($this->entity_filter_explicit) {
+         return $this->getEntityCriteria($table, $field);
       }
 
       if (count($this->configured_entities)) {
@@ -299,6 +336,7 @@ class DashboardContext
          'end'          => $this->end,
          'entities_id'  => $this->entities_id,
          'is_recursive' => $this->is_recursive ? 1 : 0,
+         'entity_filter_explicit' => $this->entity_filter_explicit ? 1 : 0,
          'groups_id'    => $this->groups_id,
          'users_id'     => $this->users_id,
          'itilcategories_id' => $this->itilcategories_id,
@@ -319,6 +357,7 @@ class DashboardContext
          'end'          => $this->end,
          'entities_id'  => $this->entities_id,
          'is_recursive' => $this->is_recursive,
+         'entity_filter_explicit' => $this->entity_filter_explicit,
          'groups_id'    => $this->groups_id,
          'users_id'     => $this->users_id,
          'itilcategories_id' => $this->itilcategories_id,

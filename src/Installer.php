@@ -15,7 +15,7 @@ use Toolbox;
 
 class Installer
 {
-   private const RECOMMENDED_LAYOUT_VERSION = '1.1.4';
+   private const RECOMMENDED_LAYOUT_VERSION = '1.1.5';
    private const LEGACY_DASHBOARD_KEYS = [
       Config::DASHBOARD_OVERVIEW,
       Config::DASHBOARD_ATTENDANCE,

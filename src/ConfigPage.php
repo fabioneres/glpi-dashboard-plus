@@ -83,12 +83,20 @@ class ConfigPage
       echo "<section class='dashboardplus-config-section'>";
       echo "<h2>" . __('Entidades e abas', 'dashboardplus') . "</h2>";
       echo "<p class='dashboardplus-config-help'>" . __('Defina onde o Dashboard Plus fica disponível e quais abas aparecem por entidade. O filtro de entidade do painel apenas recorta os dados exibidos.', 'dashboardplus') . "</p>";
-      echo "<div class='dashboardplus-settings-grid'>";
-      self::switchField('entity_default_enabled', __('Habilitar por padrão quando não houver regra específica', 'dashboardplus'), (int) $settings['entity_default_enabled']);
-      echo "<label class='dashboardplus-full-field'>";
-      echo "<span>" . __('Abas habilitadas por padrão', 'dashboardplus') . "</span>";
-      self::tabsCheckboxes('default_enabled_tabs', $settings['default_enabled_tabs'] ?? Config::getDashboardKeys());
+      echo "<div class='dashboardplus-entity-default-card'>";
+      echo "<div>";
+      echo "<strong>" . __('Regra padrão', 'dashboardplus') . "</strong>";
+      echo "<small>" . __('Usada quando a entidade não possui regra própria.', 'dashboardplus') . "</small>";
+      echo "</div>";
+      echo "<label class='dashboardplus-inline-option dashboardplus-entity-default-toggle'>";
+      echo "<input type='hidden' name='entity_default_enabled' value='0'>";
+      echo "<input type='checkbox' name='entity_default_enabled' value='1'" . ((int) $settings['entity_default_enabled'] === 1 ? ' checked' : '') . ">";
+      echo "<span>" . __('Habilitar por padrão', 'dashboardplus') . "</span>";
       echo "</label>";
+      echo "<div class='dashboardplus-entity-tabs-field'>";
+      echo "<span>" . __('Abas padrão', 'dashboardplus') . "</span>";
+      self::tabsCheckboxes('default_enabled_tabs', $settings['default_enabled_tabs'] ?? Config::getDashboardKeys());
+      echo "</div>";
       echo "</div>";
 
       echo "<details class='dashboardplus-advanced-scope'>";
@@ -117,15 +125,17 @@ class ConfigPage
       echo "</div>";
       echo "</details>";
 
-      echo "<div class='dashboardplus-widget-config-list'>";
+      echo "<div class='dashboardplus-entity-rules'>";
       foreach ($entity_configs as $row) {
          $entities_id = (int) ($row['entities_id'] ?? 0);
          $tabs = $row['enabled_tabs'] ?? [];
-         echo "<div class='dashboardplus-widget-config-row dashboardplus-entity-config-row'>";
-         echo "<div class='dashboardplus-widget-config-title'>";
-         echo "<strong>" . Html::cleanInputText(Dropdown::getDropdownName('glpi_entities', $entities_id)) . "</strong>";
-         echo "<small>" . sprintf(__('Regra explícita da entidade ID %s', 'dashboardplus'), $entities_id) . "</small>";
+         echo "<article class='dashboardplus-entity-rule-card'>";
+         echo "<div class='dashboardplus-entity-rule-head'>";
+         echo "<div class='dashboardplus-entity-rule-title'>";
+         echo "<strong><i class='ti ti-building'></i> " . Html::cleanInputText(Dropdown::getDropdownName('glpi_entities', $entities_id)) . "</strong>";
+         echo "<small>" . sprintf(__('Regra explícita - entidade ID %s', 'dashboardplus'), $entities_id) . "</small>";
          echo "</div>";
+         echo "<div class='dashboardplus-entity-rule-actions'>";
          echo "<label class='dashboardplus-inline-option'>";
          echo "<input type='hidden' name='entity_config[{$entities_id}][is_enabled]' value='0'>";
          echo "<input type='checkbox' name='entity_config[{$entities_id}][is_enabled]' value='1'" . ((int) ($row['is_enabled'] ?? 0) === 1 ? ' checked' : '') . ">";
@@ -136,16 +146,22 @@ class ConfigPage
          echo "<input type='checkbox' name='entity_config[{$entities_id}][is_recursive]' value='1'" . ((int) ($row['is_recursive'] ?? 0) === 1 ? ' checked' : '') . ">";
          echo "<span>" . __('Recursivo', 'dashboardplus') . "</span>";
          echo "</label>";
-         echo "<div class='dashboardplus-widget-advanced dashboardplus-tabs-config'>";
+         echo "</div>";
+         echo "</div>";
+         echo "<div class='dashboardplus-entity-tabs-field'>";
+         echo "<span>" . __('Abas habilitadas nesta entidade', 'dashboardplus') . "</span>";
          self::tabsCheckboxes("entity_config[{$entities_id}][tabs]", $tabs);
          echo "</div>";
-         echo "</div>";
+         echo "</article>";
       }
       echo "</div>";
 
-      echo "<div class='dashboardplus-entity-scope mt-3'>";
+      echo "<div class='dashboardplus-entity-rule-form mt-3'>";
+      echo "<div class='dashboardplus-entity-rule-form-title'>";
       echo "<h3>" . __('Nova regra de entidade', 'dashboardplus') . "</h3>";
-      echo "<small>" . __('Cria ou atualiza a regra explícita de disponibilidade da entidade selecionada.', 'dashboardplus') . "</small>";
+      echo "<p>" . __('Cria ou atualiza a regra explícita de disponibilidade da entidade selecionada.', 'dashboardplus') . "</p>";
+      echo "</div>";
+      echo "<div class='dashboardplus-entity-rule-form-grid'>";
       echo "<label>";
       echo "<span>" . __('Entidade', 'dashboardplus') . "</span>";
       Dropdown::showFromArray('new_entity_config[entities_id]', $available_entities, [
@@ -164,10 +180,11 @@ class ConfigPage
       echo "<input type='hidden' name='new_entity_config[is_recursive]' value='0'>";
       echo "<input type='checkbox' name='new_entity_config[is_recursive]' value='1'>";
       echo "</label>";
-      echo "<label class='dashboardplus-full-field'>";
+      echo "</div>";
+      echo "<div class='dashboardplus-entity-tabs-field'>";
       echo "<span>" . __('Abas', 'dashboardplus') . "</span>";
       self::tabsCheckboxes('new_entity_config[tabs]', Config::getDashboardKeys());
-      echo "</label>";
+      echo "</div>";
       echo "</div>";
       echo "</section>";
 

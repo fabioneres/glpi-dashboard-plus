@@ -53,6 +53,7 @@ $keys = [
    'sla_response_compliance',
    'sla_by_technician',
    'sla_by_category',
+   'average_elapsed_solve_time_closed',
    'average_solve_time_closed',
    'satisfaction_average',
    'satisfaction_answered_count',

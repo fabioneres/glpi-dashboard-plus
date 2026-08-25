@@ -223,7 +223,8 @@ class AboutPage
          self::card('ti ti-message-check', __('Resposta cumprida', 'dashboardplus'), __('Primeira resposta dentro do prazo de atendimento/resposta, quando o dado existir.', 'dashboardplus')),
          self::card('ti ti-user', __('SLA por técnico', 'dashboardplus'), __('Agrupa chamados atribuídos por técnico e calcula cumpridos, violados e taxa.', 'dashboardplus')),
          self::card('ti ti-category', __('SLA por categoria', 'dashboardplus'), __('Agrupa chamados por categoria e calcula cumpridos, violados e taxa.', 'dashboardplus')),
-         self::card('ti ti-hourglass', __('Tempo médio', 'dashboardplus'), __('Média entre abertura e solução/fechamento para chamados encerrados.', 'dashboardplus')),
+         self::card('ti ti-clock-hour-8', __('Tempo médio de solução', 'dashboardplus'), __('Tempo corrido entre abertura e solução dos chamados fechados no período.', 'dashboardplus'), __('date até solvedate', 'dashboardplus')),
+         self::card('ti ti-hourglass', __('Tempo médio útil de solução', 'dashboardplus'), __('Média do campo solve_delay_stat gravado pelo GLPI para chamados fechados.', 'dashboardplus'), __('solve_delay_stat', 'dashboardplus')),
       ];
    }
 

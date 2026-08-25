@@ -376,7 +376,7 @@ class AssetMetricsProvider
          $where["$table.is_template"] = 0;
       }
 
-      return array_merge($where, $context->getEntityCriteria($table));
+      return array_merge($where, $context->getVisibleEntityCriteria($table));
    }
 
    private function resolveCoordinates(string $city, $latitude, $longitude): ?array

@@ -1346,6 +1346,32 @@ class TicketMetricsProvider
       ];
    }
 
+   public function averageElapsedSolveTimeClosed(DashboardContext $context): array
+   {
+      $table = Ticket::getTable();
+      $where = $this->getBaseWhere($context, self::DATE_CLOSED);
+      $where["$table.status"] = Ticket::CLOSED;
+      $where[] = new QueryExpression("$table.solvedate IS NOT NULL");
+      $where[] = new QueryExpression("$table.solvedate >= $table.date");
+
+      $criteria = $this->withTicketProfileCriteria([
+         'SELECT' => [
+            new QueryExpression("AVG(TIMESTAMPDIFF(SECOND, $table.date, $table.solvedate)) AS average_seconds"),
+         ],
+         'FROM'  => $table,
+         'WHERE' => $where,
+      ], $context);
+
+      $row = $this->getReadDB()->request($criteria)->current();
+      $seconds = (int) round((float) ($row['average_seconds'] ?? 0));
+
+      return [
+         'number' => $seconds,
+         'value'  => $this->formatDuration($seconds),
+         'color'  => '#0f766e',
+      ];
+   }
+
    public function taskEffortByTechnician(DashboardContext $context, int $limit = 10): array
    {
       $table = Ticket::getTable();

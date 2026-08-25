@@ -2,7 +2,7 @@
 
 Dashboard Plus é um plugin para GLPI 10.0.24+ que entrega um painel moderno e modular para indicadores operacionais, táticos e executivos de chamados.
 
-A versão 1.2.0 adiciona a seção **Sobre**, com explicações visuais dos cálculos, fórmulas e níveis de interpretação por aba do dashboard.
+A série 1.2 adiciona a seção **Sobre**, com explicações visuais dos cálculos, fórmulas e níveis de interpretação por aba do dashboard.
 
 Esta implementação usa o plugin Dashboard clássico do Stevenes Donato como inspiração funcional para a experiência esperada, mas segue uma arquitetura mais atual para GLPI 10: widgets isolados, direitos por perfil, consultas com entidade, carregamento AJAX, cache e logs defensivos.
 

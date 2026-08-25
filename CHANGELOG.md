@@ -1,5 +1,11 @@
 # Histórico de alterações
 
+## 1.2.1
+
+- Hotfix da tela de configuração para carregar a lista de entidades sem depender do dropdown AJAX nativo do GLPI.
+- A seleção de entidades agora é montada no backend a partir de `glpi_entities`, respeitando `Session::haveAccessToEntity()`.
+- Correção do erro de interface "os resultados não podem ser carregados" nos campos de entidade da configuração.
+
 ## 1.2.0
 
 - Nova seção Sobre no Dashboard Plus, acessível pelo painel e pela tela de configuração.

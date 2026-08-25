@@ -45,6 +45,7 @@ class ConfigPage
       $widgets = WidgetRegistry::getAll();
       $widget_configs = WidgetRegistry::getWidgetConfigs();
       $entity_configs = Config::getEntityConfigRows();
+      $available_entities = self::getAvailableEntities();
       $capacity_config = $settings['capacity_config'] ?? Config::getDefaultCapacityConfig();
 
       $theme_class = Html::cleanInputText(Config::getThemeClass($settings));
@@ -84,15 +85,16 @@ class ConfigPage
       echo "<div class='dashboardplus-entity-scope'>";
       echo "<label>";
       echo "<span>" . __('Entidades consideradas', 'dashboardplus') . "</span>";
-      Dropdown::show(Entity::class, [
-         'name'                 => 'dashboardplus_entities_id[]',
-         'value'                => $entity_ids,
-         'multiple'             => true,
-         'width'                => '100%',
-         'display_emptychoice'  => false,
-         'addicon'              => false,
-         'comments'             => false,
-      ]);
+      if ($available_entities !== []) {
+         Dropdown::showFromArray('dashboardplus_entities_id', $available_entities, [
+            'values'               => $entity_ids,
+            'multiple'             => true,
+            'width'                => '100%',
+            'display_emptychoice'  => false,
+         ]);
+      } else {
+         echo "<span class='text-muted'>" . __('Nenhuma entidade acessível encontrada.', 'dashboardplus') . "</span>";
+      }
       echo "</label>";
       echo "<label class='dashboardplus-inline-switch dashboardplus-entity-recursive'>";
       echo "<span>" . __('Incluir entidades filhas', 'dashboardplus') . "</span>";
@@ -143,8 +145,7 @@ class ConfigPage
       echo "<h3>" . __('Adicionar ou atualizar entidade', 'dashboardplus') . "</h3>";
       echo "<label>";
       echo "<span>" . __('Entidade', 'dashboardplus') . "</span>";
-      Dropdown::show(Entity::class, [
-         'name'                => 'new_entity_config[entities_id]',
+      Dropdown::showFromArray('new_entity_config[entities_id]', $available_entities, [
          'value'               => 0,
          'width'               => '100%',
          'display_emptychoice' => true,
@@ -347,5 +348,33 @@ class ConfigPage
          echo "</label>";
       }
       echo "</div>";
+   }
+
+   private static function getAvailableEntities(): array
+   {
+      global $DB;
+
+      $entities = [];
+      foreach ($DB->request([
+         'FROM'  => Entity::getTable(),
+         'ORDER' => ['completename ASC', 'name ASC'],
+      ]) as $row) {
+         $entities_id = (int) ($row['id'] ?? 0);
+         if (!Session::haveAccessToEntity($entities_id, true)) {
+            continue;
+         }
+
+         $label = (string) ($row['completename'] ?? '');
+         if ($label === '') {
+            $label = (string) ($row['name'] ?? '');
+         }
+         if ($label === '') {
+            $label = Dropdown::getDropdownName(Entity::getTable(), $entities_id);
+         }
+
+         $entities[$entities_id] = $label;
+      }
+
+      return $entities;
    }
 }

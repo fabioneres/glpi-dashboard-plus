@@ -22,7 +22,10 @@ function plugin_init_dashboardplus(): void {
 
    $PLUGIN_HOOKS[Hooks::CSRF_COMPLIANT]['dashboardplus'] = true;
    $PLUGIN_HOOKS[Hooks::ADD_CSS]['dashboardplus'][] = 'css/dashboardplus-v2.css';
+   $PLUGIN_HOOKS[Hooks::ADD_CSS]['dashboardplus'][] = 'css/dashboardplus-layout.css';
+   $PLUGIN_HOOKS[Hooks::ADD_CSS]['dashboardplus'][] = 'css/dashboardplus-layout-fix.css';
    $PLUGIN_HOOKS[Hooks::ADD_JAVASCRIPT]['dashboardplus'][] = 'js/dashboardplus-v2.js';
+   $PLUGIN_HOOKS[Hooks::ADD_JAVASCRIPT]['dashboardplus'][] = 'js/dashboardplus-layout.js';
 
    Plugin::loadLang('dashboardplus');
 

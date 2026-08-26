@@ -4,6 +4,8 @@
    var maxConcurrentRequests = 4;
    var activeRequests = 0;
    var requestQueue = [];
+   var layoutEditing = false;
+   var draggedCard = null;
 
    function escapeHtml(value) {
       return String(value).replace(/[&<>"']/g, function(character) {
@@ -76,10 +78,12 @@
             card.classList.remove('dashboardplus-loading');
             card.innerHTML = payload && payload.html ? payload.html : '';
             card.classList.toggle('dashboardplus-card-empty', !!card.querySelector('.dashboardplus-empty'));
+            ensureLayoutControls(card, page);
          })
          .catch(function() {
             card.classList.remove('dashboardplus-loading');
             card.innerHTML = '<div class="dashboardplus-widget-error"><i class="ti ti-alert-triangle"></i><span>' + escapeHtml(error) + '</span></div>';
+            ensureLayoutControls(card, page);
          })
          .finally(function() {
             activeRequests = Math.max(0, activeRequests - 1);
@@ -100,7 +104,225 @@
       loadWidget(card, page);
    }
 
+   function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+   }
+
+   function applyCardSize(card, width, height) {
+      width = clamp(parseInt(width || '3', 10), 1, 12);
+      height = clamp(parseInt(height || '2', 10), 1, 8);
+
+      card.dataset.width = String(width);
+      card.dataset.height = String(height);
+      card.style.gridColumn = 'span ' + width;
+      card.style.gridRow = 'span ' + height;
+      card.style.setProperty('--dp-widget-rows', height);
+   }
+
+   function ensureLayoutControls(card, page) {
+      if (!page || page.dataset.dashboardplusCanLayout !== '1' || card.querySelector('.dashboardplus-layout-controls')) {
+         return;
+      }
+
+      var title = card.dataset.dashboardplusWidget || 'widget';
+      card.insertAdjacentHTML('beforeend', [
+         '<div class="dashboardplus-layout-controls" aria-hidden="true">',
+         '<span class="dashboardplus-layout-drag" draggable="true" title="Arrastar widget"><i class="ti ti-arrows-move"></i></span>',
+         '<span class="dashboardplus-layout-size" title="Redimensionar widget"><i class="ti ti-arrows-diagonal-2"></i></span>',
+         '<span class="dashboardplus-layout-badge">' + escapeHtml(title) + '</span>',
+         '</div>'
+      ].join(''));
+
+      var dragHandle = card.querySelector('.dashboardplus-layout-drag');
+      var resizeHandle = card.querySelector('.dashboardplus-layout-size');
+
+      card.addEventListener('dragover', function(event) {
+         var grid = card.parentNode;
+         if (!layoutEditing || !draggedCard || draggedCard === card || !grid || draggedCard.parentNode !== grid) {
+            return;
+         }
+
+         event.preventDefault();
+         var rect = card.getBoundingClientRect();
+         var after = event.clientY > rect.top + (rect.height / 2)
+            || (Math.abs(event.clientY - (rect.top + rect.height / 2)) < 20 && event.clientX > rect.left + (rect.width / 2));
+
+         if (after && card.nextSibling !== draggedCard) {
+            grid.insertBefore(draggedCard, card.nextSibling);
+         } else if (!after && card.previousSibling !== draggedCard) {
+            grid.insertBefore(draggedCard, card);
+         }
+      });
+
+      if (dragHandle) {
+         dragHandle.addEventListener('dragstart', function(event) {
+            if (!layoutEditing) {
+               event.preventDefault();
+               return;
+            }
+
+            draggedCard = card;
+            card.classList.add('is-dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', card.dataset.dashboardplusWidget || '');
+         });
+
+         dragHandle.addEventListener('dragend', function() {
+            if (draggedCard) {
+               draggedCard.classList.remove('is-dragging');
+            }
+            draggedCard = null;
+         });
+      }
+
+      if (resizeHandle) {
+         resizeHandle.addEventListener('pointerdown', function(event) {
+            if (!layoutEditing) {
+               return;
+            }
+
+            event.preventDefault();
+            startResize(card, event);
+         });
+      }
+   }
+
+   function startResize(card, event) {
+      var grid = card.parentNode;
+      if (!grid) {
+         return;
+      }
+
+      var gridStyle = window.getComputedStyle(grid);
+      var columnGap = parseFloat(gridStyle.columnGap || gridStyle.gap || '0') || 0;
+      var rowGap = parseFloat(gridStyle.rowGap || gridStyle.gap || '0') || 0;
+      var rowHeight = parseFloat(gridStyle.gridAutoRows || '64') || 64;
+      var columnWidth = Math.max(24, (grid.clientWidth - (columnGap * 11)) / 12);
+      var rowStep = Math.max(24, rowHeight + rowGap);
+      var startX = event.clientX;
+      var startY = event.clientY;
+      var startWidth = parseInt(card.dataset.width || '3', 10);
+      var startHeight = parseInt(card.dataset.height || '2', 10);
+
+      card.classList.add('is-resizing');
+
+      function move(moveEvent) {
+         var nextWidth = startWidth + Math.round((moveEvent.clientX - startX) / columnWidth);
+         var nextHeight = startHeight + Math.round((moveEvent.clientY - startY) / rowStep);
+         applyCardSize(card, nextWidth, nextHeight);
+      }
+
+      function stop() {
+         card.classList.remove('is-resizing');
+         document.removeEventListener('pointermove', move);
+         document.removeEventListener('pointerup', stop);
+         document.removeEventListener('pointercancel', stop);
+      }
+
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', stop);
+      document.addEventListener('pointercancel', stop);
+   }
+
+   function setLayoutEditing(page, enabled) {
+      layoutEditing = enabled;
+      page.classList.toggle('dashboardplus-layout-editing', enabled);
+
+      Array.prototype.slice.call(page.querySelectorAll('[data-dashboardplus-widget]')).forEach(function(card) {
+         ensureLayoutControls(card, page);
+      });
+
+      Array.prototype.slice.call(page.querySelectorAll('[data-dashboardplus-layout-edit]')).forEach(function(button) {
+         button.hidden = enabled;
+      });
+      Array.prototype.slice.call(page.querySelectorAll('[data-dashboardplus-layout-save], [data-dashboardplus-layout-cancel]')).forEach(function(button) {
+         button.hidden = !enabled;
+      });
+
+      var status = page.querySelector('[data-dashboardplus-layout-status]');
+      if (status) {
+         status.textContent = enabled ? 'Modo de edição ativo' : '';
+      }
+   }
+
+   function serializeLayout(page) {
+      return Array.prototype.slice.call(page.querySelectorAll('[data-dashboardplus-widget]')).map(function(card) {
+         return {
+            key: card.dataset.dashboardplusWidget || '',
+            width: parseInt(card.dataset.width || '3', 10),
+            height: parseInt(card.dataset.height || '2', 10)
+         };
+      });
+   }
+
+   function saveLayout(page) {
+      var url = page.dataset.dashboardplusLayoutUrl;
+      var token = page.dataset.dashboardplusCsrf;
+      var status = page.querySelector('[data-dashboardplus-layout-status]');
+      if (!url || !token) {
+         return;
+      }
+
+      if (status) {
+         status.textContent = 'Salvando layout...';
+      }
+
+      var body = new URLSearchParams();
+      body.append('_glpi_csrf_token', token);
+      body.append('layout', JSON.stringify(serializeLayout(page)));
+
+      fetch(url, {
+         method: 'POST',
+         credentials: 'same-origin',
+         headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest'
+         },
+         body: body.toString()
+      })
+         .then(function(response) {
+            return response.json().then(function(payload) {
+               if (!response.ok || !payload || !payload.ok) {
+                  throw new Error(payload && payload.message ? payload.message : 'Falha ao salvar layout');
+               }
+               return payload;
+            });
+         })
+         .then(function(payload) {
+            if (payload.token) {
+               page.dataset.dashboardplusCsrf = payload.token;
+            }
+            if (status) {
+               status.textContent = payload.message || 'Layout salvo';
+            }
+            setLayoutEditing(page, false);
+         })
+         .catch(function(error) {
+            if (status) {
+               status.textContent = error.message || 'Falha ao salvar layout';
+            }
+         });
+   }
+
+   function bootLayoutEditor(page) {
+      if (page.dataset.dashboardplusCanLayout !== '1') {
+         return;
+      }
+
+      Array.prototype.slice.call(page.querySelectorAll('[data-dashboardplus-widget]')).forEach(function(card) {
+         applyCardSize(card, card.dataset.width, card.dataset.height);
+         ensureLayoutControls(card, page);
+      });
+
+      page.dataset.dashboardplusLayoutBooted = '1';
+   }
+
    function bootDashboard(page) {
+      if (page.dataset.dashboardplusBooted === '1') {
+         return;
+      }
+
+      page.dataset.dashboardplusBooted = '1';
       var cards = Array.prototype.slice.call(page.querySelectorAll('[data-dashboardplus-widget]'));
       if (!cards.length) {
          return;
@@ -126,6 +348,7 @@
       }
 
       loadVisibleWidgets(page);
+      bootLayoutEditor(page);
 
       bootTabs(page, function() {
          loadVisibleWidgets(page);
@@ -143,6 +366,9 @@
       var refresh = parseInt(page.dataset.dashboardplusRefresh || '0', 10);
       if (refresh >= 30) {
          window.setInterval(function() {
+            if (layoutEditing) {
+               return;
+            }
             cards.forEach(function(card) {
                reloadWidget(card, page);
             });
@@ -151,6 +377,11 @@
    }
 
    function bootTabs(container, afterChange) {
+      if (container.dataset.dashboardplusTabsBooted === '1') {
+         return;
+      }
+
+      container.dataset.dashboardplusTabsBooted = '1';
       Array.prototype.slice.call(container.querySelectorAll('[data-dashboardplus-tab]')).forEach(function(tab) {
          tab.addEventListener('click', function() {
             var key = tab.dataset.dashboardplusTab;
@@ -169,7 +400,7 @@
       });
    }
 
-   document.addEventListener('DOMContentLoaded', function() {
+   function bootApp() {
       var page = document.querySelector('.dashboardplus-page');
       if (page) {
          bootDashboard(page);
@@ -195,5 +426,35 @@
             }
          });
       });
+   }
+
+   document.addEventListener('click', function(event) {
+      var page = document.querySelector('.dashboardplus-page');
+      if (!page) {
+         return;
+      }
+
+      var edit = event.target.closest ? event.target.closest('[data-dashboardplus-layout-edit]') : null;
+      var save = event.target.closest ? event.target.closest('[data-dashboardplus-layout-save]') : null;
+      var cancel = event.target.closest ? event.target.closest('[data-dashboardplus-layout-cancel]') : null;
+
+      if (edit) {
+         event.preventDefault();
+         bootLayoutEditor(page);
+         setLayoutEditing(page, true);
+      } else if (save) {
+         event.preventDefault();
+         bootLayoutEditor(page);
+         saveLayout(page);
+      } else if (cancel) {
+         event.preventDefault();
+         window.location.reload();
+      }
    });
+
+   if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootApp);
+   } else {
+      bootApp();
+   }
 })();

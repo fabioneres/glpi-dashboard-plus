@@ -125,67 +125,7 @@ class ConfigPage
       echo "</div>";
       echo "</details>";
 
-      echo "<div class='dashboardplus-entity-rules'>";
-      foreach ($entity_configs as $row) {
-         $entities_id = (int) ($row['entities_id'] ?? 0);
-         $tabs = $row['enabled_tabs'] ?? [];
-         echo "<article class='dashboardplus-entity-rule-card'>";
-         echo "<div class='dashboardplus-entity-rule-head'>";
-         echo "<div class='dashboardplus-entity-rule-title'>";
-         echo "<strong><i class='ti ti-building'></i> " . Html::cleanInputText(Dropdown::getDropdownName('glpi_entities', $entities_id)) . "</strong>";
-         echo "<small>" . sprintf(__('Regra explícita - entidade ID %s', 'dashboardplus'), $entities_id) . "</small>";
-         echo "</div>";
-         echo "<div class='dashboardplus-entity-rule-actions'>";
-         echo "<label class='dashboardplus-inline-option'>";
-         echo "<input type='hidden' name='entity_config[{$entities_id}][is_enabled]' value='0'>";
-         echo "<input type='checkbox' name='entity_config[{$entities_id}][is_enabled]' value='1'" . ((int) ($row['is_enabled'] ?? 0) === 1 ? ' checked' : '') . ">";
-         echo "<span>" . __('Ativo', 'dashboardplus') . "</span>";
-         echo "</label>";
-         echo "<label class='dashboardplus-inline-option'>";
-         echo "<input type='hidden' name='entity_config[{$entities_id}][is_recursive]' value='0'>";
-         echo "<input type='checkbox' name='entity_config[{$entities_id}][is_recursive]' value='1'" . ((int) ($row['is_recursive'] ?? 0) === 1 ? ' checked' : '') . ">";
-         echo "<span>" . __('Recursivo', 'dashboardplus') . "</span>";
-         echo "</label>";
-         echo "</div>";
-         echo "</div>";
-         echo "<div class='dashboardplus-entity-tabs-field'>";
-         echo "<span>" . __('Abas habilitadas nesta entidade', 'dashboardplus') . "</span>";
-         self::tabsCheckboxes("entity_config[{$entities_id}][tabs]", $tabs);
-         echo "</div>";
-         echo "</article>";
-      }
-      echo "</div>";
-
-      echo "<div class='dashboardplus-entity-rule-form mt-3'>";
-      echo "<div class='dashboardplus-entity-rule-form-title'>";
-      echo "<h3>" . __('Nova regra de entidade', 'dashboardplus') . "</h3>";
-      echo "<p>" . __('Cria ou atualiza a regra explícita de disponibilidade da entidade selecionada.', 'dashboardplus') . "</p>";
-      echo "</div>";
-      echo "<div class='dashboardplus-entity-rule-form-grid'>";
-      echo "<label>";
-      echo "<span>" . __('Entidade', 'dashboardplus') . "</span>";
-      Dropdown::showFromArray('new_entity_config[entities_id]', $available_entities, [
-         'value'               => 0,
-         'width'               => '100%',
-         'display_emptychoice' => true,
-      ]);
-      echo "</label>";
-      echo "<label class='dashboardplus-inline-switch'>";
-      echo "<span>" . __('Ativo', 'dashboardplus') . "</span>";
-      echo "<input type='hidden' name='new_entity_config[is_enabled]' value='0'>";
-      echo "<input type='checkbox' name='new_entity_config[is_enabled]' value='1' checked>";
-      echo "</label>";
-      echo "<label class='dashboardplus-inline-switch'>";
-      echo "<span>" . __('Recursivo', 'dashboardplus') . "</span>";
-      echo "<input type='hidden' name='new_entity_config[is_recursive]' value='0'>";
-      echo "<input type='checkbox' name='new_entity_config[is_recursive]' value='1'>";
-      echo "</label>";
-      echo "</div>";
-      echo "<div class='dashboardplus-entity-tabs-field'>";
-      echo "<span>" . __('Abas', 'dashboardplus') . "</span>";
-      self::tabsCheckboxes('new_entity_config[tabs]', Config::getDashboardKeys());
-      echo "</div>";
-      echo "</div>";
+      self::showEntityMatrix($available_entities, $entity_configs, $settings);
       echo "</section>";
 
       echo "<section class='dashboardplus-config-section'>";
@@ -367,6 +307,85 @@ class ConfigPage
          echo "<span>" . Html::cleanInputText($label) . "</span>";
          echo "</label>";
       }
+      echo "</div>";
+   }
+
+   private static function showEntityMatrix(array $available_entities, array $entity_configs, array $settings): void
+   {
+      $config_map = [];
+      foreach ($entity_configs as $row) {
+         $config_map[(int) ($row['entities_id'] ?? 0)] = $row;
+      }
+
+      $default_tabs = Config::normalizeEnabledTabs($settings['default_enabled_tabs'] ?? Config::getDashboardKeys());
+      $default_enabled = (int) ($settings['entity_default_enabled'] ?? 0) === 1;
+      $dashboards = Config::getDashboardLabels();
+
+      echo "<div class='dashboardplus-entity-matrix'>";
+      echo "<div class='dashboardplus-entity-matrix-head'>";
+      echo "<div>";
+      echo "<strong>" . __('Habilitação por entidade', 'dashboardplus') . "</strong>";
+      echo "<small>" . __('Marque onde o Dashboard Plus funciona e quais abas ficam disponíveis em cada entidade.', 'dashboardplus') . "</small>";
+      echo "</div>";
+      echo "<span>" . sprintf(__('%s entidades acessíveis', 'dashboardplus'), count($available_entities)) . "</span>";
+      echo "</div>";
+
+      if ($available_entities === []) {
+         echo "<div class='dashboardplus-empty-state'>";
+         echo "<i class='ti ti-building-off'></i>";
+         echo "<strong>" . __('Nenhuma entidade acessível encontrada.', 'dashboardplus') . "</strong>";
+         echo "</div>";
+         echo "</div>";
+         return;
+      }
+
+      echo "<div class='dashboardplus-entity-matrix-scroll'>";
+      echo "<table class='dashboardplus-entity-matrix-table'>";
+      echo "<thead><tr>";
+      echo "<th>" . __('Entidade', 'dashboardplus') . "</th>";
+      echo "<th>" . __('Ativo', 'dashboardplus') . "</th>";
+      echo "<th>" . __('Recursivo', 'dashboardplus') . "</th>";
+      foreach ($dashboards as $label) {
+         echo "<th>" . Html::cleanInputText($label) . "</th>";
+      }
+      echo "</tr></thead>";
+      echo "<tbody>";
+
+      foreach ($available_entities as $entities_id => $entity_label) {
+         $entities_id = (int) $entities_id;
+         $row = $config_map[$entities_id] ?? null;
+         $is_explicit = $row !== null;
+         $enabled = $is_explicit ? ((int) ($row['is_enabled'] ?? 0) === 1) : $default_enabled;
+         $recursive = $is_explicit ? ((int) ($row['is_recursive'] ?? 0) === 1) : false;
+         $tabs = $is_explicit ? Config::normalizeEnabledTabs($row['enabled_tabs'] ?? []) : $default_tabs;
+
+         echo "<tr>";
+         echo "<td class='dashboardplus-entity-name'>";
+         echo "<strong>" . Html::cleanInputText((string) $entity_label) . "</strong>";
+         echo "<small>" . ($is_explicit
+            ? sprintf(__('Regra explícita - ID %s', 'dashboardplus'), $entities_id)
+            : __('Usando regra padrão até salvar.', 'dashboardplus')) . "</small>";
+         echo "</td>";
+         echo "<td>";
+         echo "<input type='hidden' name='entity_config[{$entities_id}][is_enabled]' value='0'>";
+         echo "<input type='checkbox' name='entity_config[{$entities_id}][is_enabled]' value='1'" . ($enabled ? ' checked' : '') . ">";
+         echo "</td>";
+         echo "<td>";
+         echo "<input type='hidden' name='entity_config[{$entities_id}][is_recursive]' value='0'>";
+         echo "<input type='checkbox' name='entity_config[{$entities_id}][is_recursive]' value='1'" . ($recursive ? ' checked' : '') . ">";
+         echo "</td>";
+         foreach ($dashboards as $key => $label) {
+            $checked = in_array($key, $tabs, true) ? ' checked' : '';
+            echo "<td>";
+            echo "<input type='checkbox' name='entity_config[{$entities_id}][tabs][]' value='" . Html::cleanInputText((string) $key) . "'{$checked} title='" . Html::cleanInputText((string) $label) . "'>";
+            echo "</td>";
+         }
+         echo "</tr>";
+      }
+
+      echo "</tbody>";
+      echo "</table>";
+      echo "</div>";
       echo "</div>";
    }
 

@@ -374,7 +374,9 @@ class WidgetRenderer
       $icon = Html::cleanInputText($widget->getIcon());
 
       if ($columns === [] && count($rows)) {
-         $columns = array_keys(reset($rows));
+         $normalized = self::normalizeDataTableRows($widget, $rows, $data);
+         $rows = $normalized['rows'];
+         $columns = $normalized['columns'];
       }
 
       $html = "<div class='dashboardplus-table-widget'>";
@@ -404,6 +406,92 @@ class WidgetRenderer
       $html .= "</tbody></table></div></div>";
 
       return $html;
+   }
+
+   private static function normalizeDataTableRows(WidgetInterface $widget, array $rows, array $data): array
+   {
+      $columns = self::inferBusinessColumns($rows);
+      if ($columns !== []) {
+         return [
+            'rows'    => $rows,
+            'columns' => $columns,
+         ];
+      }
+
+      if (!self::looksLikeChartRows($rows)) {
+         $first = reset($rows);
+         return [
+            'rows'    => $rows,
+            'columns' => is_array($first) ? array_keys($first) : [],
+         ];
+      }
+
+      $item_column = $widget->getKey() === 'distribution_summary_by_distributor'
+         ? __('Distribuidor', 'dashboardplus')
+         : __('Item', 'dashboardplus');
+      $quantity_column = __('Quantidade', 'dashboardplus');
+      $percent_column = __('Percentual', 'dashboardplus');
+      $total = self::getTotal($data, $rows);
+      $normalized_rows = [];
+
+      foreach ($rows as $row) {
+         $number = (int) ($row['number'] ?? 0);
+         $normalized_rows[] = [
+            $item_column     => (string) ($row['label'] ?? '-'),
+            $quantity_column => number_format($number, 0, ',', '.'),
+            $percent_column  => self::formatPercent(self::getPercent($number, $total)),
+         ];
+      }
+
+      return [
+         'rows'    => $normalized_rows,
+         'columns' => [$item_column, $quantity_column, $percent_column],
+      ];
+   }
+
+   private static function inferBusinessColumns(array $rows): array
+   {
+      $internal_columns = [
+         'label',
+         'number',
+         'value',
+         'color',
+         'url',
+         'status_class',
+      ];
+      $columns = [];
+
+      foreach ($rows as $row) {
+         if (!is_array($row)) {
+            continue;
+         }
+
+         foreach (array_keys($row) as $column) {
+            $column = (string) $column;
+            if (in_array($column, $internal_columns, true)) {
+               continue;
+            }
+            if (!in_array($column, $columns, true)) {
+               $columns[] = $column;
+            }
+         }
+      }
+
+      return $columns;
+   }
+
+   private static function looksLikeChartRows(array $rows): bool
+   {
+      foreach ($rows as $row) {
+         if (!is_array($row)) {
+            continue;
+         }
+         if (array_key_exists('label', $row) || array_key_exists('number', $row)) {
+            return true;
+         }
+      }
+
+      return false;
    }
 
    private static function renderSaoPauloMap(WidgetInterface $widget, array $data): string

@@ -609,6 +609,43 @@ class WidgetRegistry
       unset($_SESSION['glpimenu']);
    }
 
+   public static function saveLayout(array $items): void
+   {
+      global $DB;
+
+      Config::checkConfigureWidgets();
+      self::ensureDefaultWidgetConfigs();
+
+      if (!$DB->tableExists(Config::getWidgetConfigTable())) {
+         return;
+      }
+
+      $widgets = self::getAll();
+      $order = 10;
+
+      foreach ($items as $item) {
+         if (!is_array($item)) {
+            continue;
+         }
+
+         $key = preg_replace('/[^a-z0-9_]/', '', (string) ($item['key'] ?? ''));
+         if ($key === '' || !isset($widgets[$key])) {
+            continue;
+         }
+
+         $DB->update(Config::getWidgetConfigTable(), [
+            'display_order' => $order,
+            'width'         => max(1, min(12, (int) ($item['width'] ?? 3))),
+            'height'        => max(1, min(8, (int) ($item['height'] ?? 2))),
+            'date_mod'      => date('Y-m-d H:i:s'),
+         ], [
+            'widget_key' => $key,
+         ]);
+
+         $order += 10;
+      }
+   }
+
    private static function normalizeColor(string $color): string
    {
       $color = trim($color);

@@ -1,5 +1,14 @@
 # Histórico de alterações
 
+## 1.2.4
+
+- Adiciona edição visual de layout no dashboard, com botão "Editar layout", reordenação por arrastar e soltar e salvamento via AJAX protegido por CSRF.
+- Permite redimensionar widgets no painel e persistir largura, altura e ordem usando a configuração existente de widgets.
+- Reorganiza a configuração de habilitação por entidade em matriz única, mostrando entidades acessíveis, estado ativo, recursividade e abas habilitadas.
+- Registra os novos assets específicos do editor de layout no carregamento do plugin.
+- Corrige a visualização em tabela do "Resumo por distribuidor" para não expor campos internos de gráfico como `label`, `number`, `value` e `color`.
+- Mantém os dados técnicos internamente para alimentar os gráficos, exibindo na tabela apenas colunas de negócio como Distribuidor, Quantidade e Percentual.
+
 ## 1.2.3
 
 - Adiciona o indicador "Tempo médio de solução" com tempo corrido entre abertura e solução dos chamados fechados.

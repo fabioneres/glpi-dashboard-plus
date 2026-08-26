@@ -63,11 +63,14 @@ class Dashboard extends CommonDBTM
          : 0;
       $loading_label = htmlspecialchars(__('Carregando', 'dashboardplus'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
       $error_label = htmlspecialchars(__('Widget indisponível', 'dashboardplus'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+      $layout_url = htmlspecialchars(Config::pluginUrl('/front/layout.ajax.php'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+      $layout_token = htmlspecialchars(Session::getNewCSRFToken(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+      $can_layout = Config::canConfigureWidgets() ? '1' : '0';
 
       $theme_class = Html::cleanInputText(Config::getThemeClass($settings));
       $theme_style = Config::getThemeStyleAttribute($settings);
 
-      echo "<div class='dashboardplus-page {$theme_class}'{$theme_style} data-dashboardplus-refresh='{$refresh}' data-dashboardplus-loading='{$loading_label}' data-dashboardplus-error='{$error_label}'>";
+      echo "<div class='dashboardplus-page {$theme_class}'{$theme_style} data-dashboardplus-refresh='{$refresh}' data-dashboardplus-loading='{$loading_label}' data-dashboardplus-error='{$error_label}' data-dashboardplus-can-layout='{$can_layout}' data-dashboardplus-layout-url='{$layout_url}' data-dashboardplus-csrf='{$layout_token}'>";
       self::showToolbar($context, $settings);
 
       if (!count($widgets)) {
@@ -80,12 +83,12 @@ class Dashboard extends CommonDBTM
          return;
       }
 
-      self::showDashboardPanels(self::getDashboardSections($widgets, $context), $configs, $context);
+      self::showDashboardPanels(self::getDashboardSections($widgets, $configs, $context), $configs, $context);
 
       echo "</div>";
    }
 
-   private static function getDashboardSections(array $widgets, DashboardContext $context): array
+   private static function getDashboardSections(array $widgets, array $configs, DashboardContext $context): array
    {
       $sections = [];
       $known = [];
@@ -104,6 +107,7 @@ class Dashboard extends CommonDBTM
          }
 
          if ($section_widgets !== []) {
+            $section_widgets = self::sortWidgetsByConfigOrder($section_widgets, $configs);
             $sections[] = [
                'dashboard'  => $definition['dashboard'],
                'title'      => $definition['title'],
@@ -118,12 +122,28 @@ class Dashboard extends CommonDBTM
          $sections[] = [
             'dashboard'  => Config::DASHBOARD_OVERVIEW,
             'title'      => __('Indicadores adicionais', 'dashboardplus'),
-            'widgets'    => $others,
+            'widgets'    => self::sortWidgetsByConfigOrder($others, $configs),
             'grid_class' => 'dashboardplus-grid',
          ];
       }
 
       return $sections;
+   }
+
+   private static function sortWidgetsByConfigOrder(array $widgets, array $configs): array
+   {
+      uksort($widgets, static function(string $left, string $right) use ($configs): int {
+         $left_order = (int) ($configs[$left]['display_order'] ?? 999);
+         $right_order = (int) ($configs[$right]['display_order'] ?? 999);
+
+         if ($left_order === $right_order) {
+            return $left <=> $right;
+         }
+
+         return $left_order <=> $right_order;
+      });
+
+      return $widgets;
    }
 
    public static function getWidgetDashboardKey(string $widget_key): string
@@ -396,7 +416,7 @@ class Dashboard extends CommonDBTM
       $safe_url = htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
       $title = Html::cleanInputText($widget->getTitle());
 
-      echo "<section class='dashboardplus-card dashboardplus-loading' style='grid-column: span {$width}; grid-row: span {$height}; --dp-widget-rows: {$height};' data-dashboardplus-widget='{$safe_key}' data-url='{$safe_url}'>";
+      echo "<section class='dashboardplus-card dashboardplus-loading' style='grid-column: span {$width}; grid-row: span {$height}; --dp-widget-rows: {$height};' data-dashboardplus-widget='{$safe_key}' data-url='{$safe_url}' data-width='{$width}' data-height='{$height}'>";
       echo "<div class='dashboardplus-loader'>";
       echo "<i class='ti ti-loader-2'></i>";
       echo "<span>" . sprintf(__('Carregando %s', 'dashboardplus'), $title) . "</span>";
@@ -485,6 +505,19 @@ class Dashboard extends CommonDBTM
          echo "<a class='btn btn-outline-secondary' href='" . Config::pluginUrl('/front/config.form.php') . "'>";
          echo "<i class='ti ti-settings'></i> " . __('Configurações', 'dashboardplus');
          echo "</a>";
+      }
+
+      if (Config::canConfigureWidgets()) {
+         echo "<button type='button' class='btn btn-outline-primary dashboardplus-layout-edit' data-dashboardplus-layout-edit>";
+         echo "<i class='ti ti-layout-grid'></i> " . __('Editar layout', 'dashboardplus');
+         echo "</button>";
+         echo "<button type='button' class='btn btn-primary dashboardplus-layout-save' data-dashboardplus-layout-save hidden>";
+         echo "<i class='ti ti-device-floppy'></i> " . __('Salvar layout', 'dashboardplus');
+         echo "</button>";
+         echo "<button type='button' class='btn btn-outline-secondary dashboardplus-layout-cancel' data-dashboardplus-layout-cancel hidden>";
+         echo "<i class='ti ti-x'></i> " . __('Cancelar', 'dashboardplus');
+         echo "</button>";
+         echo "<span class='dashboardplus-layout-status' data-dashboardplus-layout-status aria-live='polite'></span>";
       }
 
       echo "</div>";
